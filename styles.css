@@ -218,7 +218,7 @@ button:active {
 }
 
 .indicator-container {
-    height: 220px;
+    height: 280px; /* Increased height even more */
     position: relative;
     padding: 1rem;
 }
@@ -232,6 +232,6 @@ button:active {
 
 .indicator-container canvas {
     margin-top: 0.5rem;
-    height: calc(100% - 4rem) !important; /* Increased bottom margin */
-    padding-bottom: 1rem; /* Added padding at the bottom */
+    height: calc(100% - 8rem) !important; /* Significantly increased bottom margin */
+    padding-bottom: 3rem; /* Added even more padding at the bottom */
 }
