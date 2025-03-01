@@ -392,12 +392,12 @@ async function fetchFreshData() {
         // Verify we have interest rate data for both currencies
         if (!state.interestRates[baseCurrency] || !state.interestRates[baseCurrency].length) {
             console.warn(`No interest rate data for ${baseCurrency}, using sample data`);
-            state.interestRates[baseCurrency] = sampleInterestRates[baseCurrency] || [];
+            state.interestRates[baseCurrency] = JSON.parse(JSON.stringify(sampleInterestRates[baseCurrency])) || [];
         }
         
         if (!state.interestRates[quoteCurrency] || !state.interestRates[quoteCurrency].length) {
             console.warn(`No interest rate data for ${quoteCurrency}, using sample data`);
-            state.interestRates[quoteCurrency] = sampleInterestRates[quoteCurrency] || [];
+            state.interestRates[quoteCurrency] = JSON.parse(JSON.stringify(sampleInterestRates[quoteCurrency])) || [];
         }
         
         // Set up all available dates from the default pair
@@ -559,7 +559,7 @@ async function fetchInterestRateData(currency) {
     // Check if we're in demo mode
     if (CONFIG.demoMode) {
         console.log(`Using sample interest rate data for ${currency} (demo mode)`);
-        state.interestRates[currency] = sampleInterestRates[currency] || [];
+        state.interestRates[currency] = JSON.parse(JSON.stringify(sampleInterestRates[currency])) || [];
         return;
     }
     
@@ -579,13 +579,13 @@ async function fetchInterestRateData(currency) {
             // For JPY, we don't have a direct API endpoint, so we'll use sample data
             // This ensures we always have JPY data available
             console.log(`Using sample data for ${currency} interest rates`);
-            state.interestRates[currency] = sampleInterestRates[currency] || [];
+            state.interestRates[currency] = JSON.parse(JSON.stringify(sampleInterestRates[currency])) || [];
             return;
         } else {
             // For other currencies, we could use TREASURY_YIELD but Alpha Vantage
             // doesn't provide this for all countries, so we'll fall back to sample data
             console.log(`No direct API for ${currency} interest rates, using sample data`);
-            state.interestRates[currency] = sampleInterestRates[currency] || [];
+            state.interestRates[currency] = JSON.parse(JSON.stringify(sampleInterestRates[currency])) || [];
             return;
         }
         
@@ -628,7 +628,7 @@ async function fetchInterestRateData(currency) {
         console.log(`Falling back to sample data for ${currency}`);
         
         // Fall back to sample data if there's an error
-        state.interestRates[currency] = sampleInterestRates[currency] || [];
+        state.interestRates[currency] = JSON.parse(JSON.stringify(sampleInterestRates[currency])) || [];
     }
 }
 
@@ -1300,6 +1300,12 @@ function updateCharts(currentDate) {
     // Filter the differential history based on the selected timeframe
     const visibleDiffHistory = getVisibleHistory(diffHistory, currentDate, state.timeframe);
     
+    // Always ensure we have a canvas element before updating the chart
+    const diffChartContainer = document.getElementById('diffChart').parentElement;
+    if (!document.getElementById('diffChart')) {
+        diffChartContainer.innerHTML = '<canvas id="diffChart"></canvas>';
+    }
+    
     updateDiffChart(visibleDiffHistory);
 }
 
@@ -1581,8 +1587,16 @@ function updateRSIChart(data) {
 
 // Update the rate differential chart with responsive design
 function updateDiffChart(data) {
+    // First, ensure the canvas element exists
+    const container = document.getElementById('diffChart').parentElement;
+    if (!document.getElementById('diffChart')) {
+        container.innerHTML = '<canvas id="diffChart"></canvas>';
+    }
+    
+    // Now get the context
     const ctx = document.getElementById('diffChart').getContext('2d');
     
+    // Destroy previous chart if it exists
     if (diffChart) {
         diffChart.destroy();
     }
@@ -1605,7 +1619,6 @@ function updateDiffChart(data) {
         
         // If still no data, show a message
         if (!data || data.length === 0) {
-            const container = document.getElementById('diffChart').parentElement;
             container.innerHTML = '<div class="flex items-center justify-center h-full text-gray-500">No rate differential data available</div>';
             return;
         }
@@ -1616,24 +1629,23 @@ function updateDiffChart(data) {
     const visibleData = data.filter(d => d.date <= currentDate);
     
     if (visibleData.length === 0) {
-        const container = document.getElementById('diffChart').parentElement;
         container.innerHTML = '<div class="flex items-center justify-center h-full text-gray-500">No rate differential data available for this date</div>';
         return;
     }
     
     // Recreate the canvas if it was replaced with a message
-    const container = document.getElementById('diffChart').parentElement;
     if (!document.getElementById('diffChart')) {
         container.innerHTML = '<canvas id="diffChart"></canvas>';
-        const newCtx = document.getElementById('diffChart').getContext('2d');
-        ctx = newCtx; // Update the context reference
     }
+    
+    // Get the context again to ensure it's valid
+    const updatedCtx = document.getElementById('diffChart').getContext('2d');
     
     // Calculate the current differential value (most recent data point)
     const currentDiff = visibleData.length > 0 ? parseFloat(visibleData[visibleData.length - 1].diff) : 0;
     
     // Create a simple chart without custom plugins
-    diffChart = new Chart(ctx, {
+    diffChart = new Chart(updatedCtx, {
         type: 'line',
         data: {
             labels: visibleData.map(d => d.date),
