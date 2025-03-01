@@ -19,6 +19,7 @@ const CONFIG = {
     
     // Local storage keys
     apiKeyStorageKey: 'fxDashboardApiKey',
+    themeStorageKey: 'fxDashboardTheme',
     
     // Data storage keys
     dataStorageKeys: {
@@ -188,12 +189,21 @@ const chartConfig = {
             },
             titleFont: {
                 size: 11
-            }
+            },
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            borderColor: 'rgba(255, 255, 255, 0.2)',
+            borderWidth: 1,
+            cornerRadius: 6,
+            displayColors: true,
+            boxPadding: 4
         }
     },
     layout: {
         padding: {
-            bottom: 15
+            top: 5,
+            right: 10,
+            bottom: 15,
+            left: 10
         }
     }
 };
@@ -212,7 +222,10 @@ const elements = {
     apiKeyInput: document.getElementById('apiKey'),
     saveApiKeyBtn: document.getElementById('saveApiKey'),
     refreshDataBtn: document.getElementById('refreshData'),
-    lastUpdateTime: document.getElementById('lastUpdateTime')
+    lastUpdateTime: document.getElementById('lastUpdateTime'),
+    themeToggle: document.getElementById('themeToggle'),
+    moonIcon: document.getElementById('moonIcon'),
+    sunIcon: document.getElementById('sunIcon')
 };
 
 // Initialize the application
@@ -856,6 +869,7 @@ function setupEventListeners() {
     elements.timeframeButtons.forEach(btn => {
         btn.addEventListener('click', () => {
             state.timeframe = btn.dataset.timeframe;
+            updateTimeframeButtons(state.timeframe);
             updateUI();
         });
     });
@@ -895,6 +909,22 @@ function setupEventListeners() {
             await fetchFreshData();
         }
     });
+    
+    // Theme toggle button
+    elements.themeToggle.addEventListener('click', toggleTheme);
+}
+
+// Update timeframe buttons
+function updateTimeframeButtons(selectedTimeframe) {
+    elements.timeframeButtons.forEach(btn => {
+        if (btn.dataset.timeframe === selectedTimeframe) {
+            btn.classList.add('active');
+            btn.classList.remove('bg-gray-200', 'text-gray-700', 'hover:bg-gray-300');
+        } else {
+            btn.classList.remove('active', 'bg-blue-500', 'text-white');
+            btn.classList.add('bg-gray-200', 'text-gray-700', 'hover:bg-gray-300');
+        }
+    });
 }
 
 // Update the play/pause button icon
@@ -925,6 +955,51 @@ function playTimeline() {
         state.isPlaying = false;
         updatePlayPauseButton();
     }
+}
+
+// Initialize theme
+function initTheme() {
+    const savedTheme = localStorage.getItem(CONFIG.themeStorageKey) || 'dark';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    updateThemeIcons(savedTheme);
+    updateChartsTheme(savedTheme);
+}
+
+// Toggle between light and dark theme
+function toggleTheme() {
+    const currentTheme = document.documentElement.getAttribute('data-theme');
+    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+    
+    document.documentElement.setAttribute('data-theme', newTheme);
+    localStorage.setItem(CONFIG.themeStorageKey, newTheme);
+    
+    updateThemeIcons(newTheme);
+    updateChartsTheme(newTheme);
+}
+
+// Update theme icons visibility
+function updateThemeIcons(theme) {
+    if (theme === 'dark') {
+        elements.moonIcon.classList.add('hidden');
+        elements.sunIcon.classList.remove('hidden');
+    } else {
+        elements.moonIcon.classList.remove('hidden');
+        elements.sunIcon.classList.add('hidden');
+    }
+}
+
+// Update charts theme
+function updateChartsTheme(theme) {
+    const textColor = theme === 'dark' ? '#f1f5f9' : '#1e293b';
+    const gridColor = theme === 'dark' ? 'rgba(71, 85, 105, 0.5)' : 'rgba(203, 213, 225, 0.5)';
+    
+    Chart.defaults.color = textColor;
+    Chart.defaults.borderColor = gridColor;
+    
+    // Update existing charts if they exist
+    if (priceChart) priceChart.update();
+    if (rsiChart) rsiChart.update();
+    if (diffChart) diffChart.update();
 }
 
 // Update the UI with current state
@@ -1168,6 +1243,10 @@ function updatePriceChart(data) {
         priceChart.destroy();
     }
     
+    // Get current theme
+    const currentTheme = document.documentElement.getAttribute('data-theme');
+    const gridColor = currentTheme === 'dark' ? 'rgba(71, 85, 105, 0.5)' : 'rgba(203, 213, 225, 0.5)';
+    
     priceChart = new Chart(ctx, {
         type: 'line',
         data: {
@@ -1238,12 +1317,19 @@ function updatePriceChart(data) {
                     },
                     grid: {
                         display: false
+                    },
+                    ticks: {
+                        maxRotation: 0,
+                        padding: 8
                     }
                 },
                 y: {
                     beginAtZero: false,
                     grid: {
-                        color: 'rgba(0, 0, 0, 0.05)'
+                        color: gridColor
+                    },
+                    ticks: {
+                        padding: 5
                     }
                 }
             }
@@ -1258,6 +1344,10 @@ function updateRSIChart(data) {
     if (rsiChart) {
         rsiChart.destroy();
     }
+    
+    // Get current theme
+    const currentTheme = document.documentElement.getAttribute('data-theme');
+    const gridColor = currentTheme === 'dark' ? 'rgba(71, 85, 105, 0.5)' : 'rgba(203, 213, 225, 0.5)';
     
     rsiChart = new Chart(ctx, {
         type: 'line',
@@ -1310,7 +1400,7 @@ function updateRSIChart(data) {
                             if (context.tick.value === 30 || context.tick.value === 70) {
                                 return 'rgba(239, 68, 68, 0.2)';
                             }
-                            return 'rgba(0, 0, 0, 0.05)';
+                            return gridColor;
                         }
                     },
                     ticks: {
@@ -1333,6 +1423,10 @@ function updateDiffChart(data) {
         diffChart.destroy();
     }
     
+    // Get current theme
+    const currentTheme = document.documentElement.getAttribute('data-theme');
+    const gridColor = currentTheme === 'dark' ? 'rgba(71, 85, 105, 0.5)' : 'rgba(203, 213, 225, 0.5)';
+    
     diffChart = new Chart(ctx, {
         type: 'bar',
         data: {
@@ -1344,8 +1438,8 @@ function updateDiffChart(data) {
                     backgroundColor: data.map(d => parseFloat(d.diff) >= 0 ? 'rgba(59, 130, 246, 0.5)' : 'rgba(239, 68, 68, 0.5)'),
                     borderColor: data.map(d => parseFloat(d.diff) >= 0 ? 'rgb(59, 130, 246)' : 'rgb(239, 68, 68)'),
                     borderWidth: 1,
-                    borderRadius: 2,
-                    barThickness: 6
+                    borderRadius: 4,
+                    barThickness: 12
                 }
             ]
         },
@@ -1375,7 +1469,7 @@ function updateDiffChart(data) {
                 },
                 y: {
                     grid: {
-                        color: 'rgba(0, 0, 0, 0.05)'
+                        color: gridColor
                     },
                     ticks: {
                         font: {
@@ -1433,4 +1527,7 @@ function debounce(func, wait) {
 }
 
 // Initialize the app when the DOM is loaded
-document.addEventListener('DOMContentLoaded', initApp);
+document.addEventListener('DOMContentLoaded', () => {
+    initApp();
+    initTheme();
+});
