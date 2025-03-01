@@ -167,6 +167,7 @@ input[type=range]:focus {
     position: relative;
     width: 100%;
     height: 100%;
+    padding: 0.5rem;
 }
 
 /* Scrollbar styles */
@@ -200,4 +201,30 @@ button:hover {
 
 button:active {
     transform: translateY(0);
+}
+
+/* Technical indicators section */
+.technical-indicators {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+    margin-top: 1rem;
+}
+
+@media (min-width: 640px) {
+    .technical-indicators {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+.indicator-container {
+    height: 200px;
+    position: relative;
+    padding: 0.5rem;
+}
+
+.indicator-container h3 {
+    margin-bottom: 0.5rem;
+    font-size: 0.875rem;
+    color: #4b5563;
 }
