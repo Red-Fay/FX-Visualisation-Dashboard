@@ -2,8 +2,8 @@
 
 // Configuration
 const CONFIG = {
-    // Sample currency pairs to track
-    currencyPairs: ['USD/JPY', 'EUR/USD', 'GBP/USD', 'USD/CHF', 'AUD/USD', 'USD/CAD', 'NZD/USD'],
+    // Temporarily limited to only USD/JPY to reduce API calls
+    currencyPairs: ['USD/JPY'],
     
     // Default selected pair
     defaultPair: 'USD/JPY',
@@ -98,18 +98,11 @@ const sampleData = {
         { date: '2024-10-09', value: 148.45, rsi: 62, ma20: 146.12, ma50: 151.58, bollUpper: 151.0, bollLower: 151.0 },
         { date: '2024-10-16', value: 147.92, rsi: 58, ma20: 145.95, ma50: 150.89, bollUpper: 150.6, bollLower: 150.5 },
         { date: '2024-10-23', value: 150.35, rsi: 65, ma20: 146.23, ma50: 150.25, bollUpper: 150.2, bollLower: 150.0 }
-    ],
-    'EUR/USD': [
-        { date: '2024-01-03', value: 1.0923, rsi: 45, ma20: 1.0910, ma50: 1.0895 },
-        { date: '2024-01-10', value: 1.0975, rsi: 48, ma20: 1.0920, ma50: 1.0900 },
-        { date: '2024-01-17', value: 1.0892, rsi: 42, ma20: 1.0915, ma50: 1.0905 },
-        // More data would be added here...
-        { date: '2024-10-23', value: 1.0887, rsi: 52, ma20: 1.0850, ma50: 1.0875 }
     ]
-    // Other currency pairs would go here
+    // Other currency pairs removed to focus only on USD/JPY
 };
 
-// Sample interest rate data for demo mode
+// Sample interest rate data for demo mode - keep only USD and JPY
 const sampleInterestRates = {
     'USD': [
         { date: '2024-01-31', rate: 5.50 },
@@ -128,59 +121,6 @@ const sampleInterestRates = {
         { date: '2024-07-31', rate: 0.50 },
         { date: '2024-09-20', rate: 0.75 },
         { date: '2024-10-23', rate: 0.75 }
-    ],
-    'EUR': [
-        { date: '2024-01-31', rate: 4.50 },
-        { date: '2024-03-07', rate: 4.50 },
-        { date: '2024-04-11', rate: 4.50 },
-        { date: '2024-06-06', rate: 4.25 },
-        { date: '2024-07-18', rate: 4.25 },
-        { date: '2024-09-12', rate: 4.00 },
-        { date: '2024-10-23', rate: 4.00 }
-    ],
-    'GBP': [
-        { date: '2024-01-31', rate: 5.25 },
-        { date: '2024-03-21', rate: 5.25 },
-        { date: '2024-05-09', rate: 5.00 },
-        { date: '2024-06-20', rate: 5.00 },
-        { date: '2024-08-01', rate: 4.75 },
-        { date: '2024-09-19', rate: 4.50 },
-        { date: '2024-10-23', rate: 4.50 }
-    ],
-    'AUD': [
-        { date: '2024-01-31', rate: 4.35 },
-        { date: '2024-03-19', rate: 4.35 },
-        { date: '2024-05-07', rate: 4.35 },
-        { date: '2024-06-18', rate: 4.10 },
-        { date: '2024-08-06', rate: 4.10 },
-        { date: '2024-09-17', rate: 3.85 },
-        { date: '2024-10-23', rate: 3.85 }
-    ],
-    'CHF': [
-        { date: '2024-01-31', rate: 1.75 },
-        { date: '2024-03-21', rate: 1.75 },
-        { date: '2024-06-20', rate: 1.50 },
-        { date: '2024-09-19', rate: 1.25 },
-        { date: '2024-10-23', rate: 1.25 }
-    ],
-    'CAD': [
-        { date: '2024-01-24', rate: 5.00 },
-        { date: '2024-03-06', rate: 5.00 },
-        { date: '2024-04-10', rate: 4.75 },
-        { date: '2024-06-05', rate: 4.75 },
-        { date: '2024-07-24', rate: 4.50 },
-        { date: '2024-09-04', rate: 4.25 },
-        { date: '2024-10-23', rate: 4.25 }
-    ],
-    'NZD': [
-        { date: '2024-01-31', rate: 5.50 },
-        { date: '2024-02-28', rate: 5.50 },
-        { date: '2024-04-10', rate: 5.25 },
-        { date: '2024-05-22', rate: 5.25 },
-        { date: '2024-07-10', rate: 5.00 },
-        { date: '2024-08-14', rate: 4.75 },
-        { date: '2024-10-09', rate: 4.50 },
-        { date: '2024-10-23', rate: 4.50 }
     ]
 };
 
@@ -234,38 +174,14 @@ function loadDemoData() {
     state.allDates = state.historicalData[CONFIG.defaultPair].map(d => d.date);
     state.currentDateIndex = state.allDates.length - 1; // Start at most recent date
     
-    // Generate missing data for other currency pairs
-    CONFIG.currencyPairs.forEach(pair => {
-        if (!state.historicalData[pair]) {
-            generateSampleDataForPair(pair);
-        }
-    });
-    
     // Initialize the UI
     updateUI();
 }
 
-// Generate sample data for a currency pair (for demo mode)
+// Generate sample data for a currency pair (for demo mode) - Not needed anymore since we're only using USD/JPY
 function generateSampleDataForPair(pair) {
-    const basePair = CONFIG.defaultPair;
-    
-    if (!state.historicalData[basePair]) return;
-    
-    state.historicalData[pair] = state.historicalData[basePair].map(baseData => {
-        // Generate random but realistic data based on USD/JPY pattern
-        const randomFactor = 0.95 + Math.random() * 0.1; // 0.95 to 1.05
-        const baseValue = pair.includes('/USD') ? 1 / baseData.value * 100 : baseData.value / 10;
-        
-        return {
-            date: baseData.date,
-            value: parseFloat((baseValue * randomFactor).toFixed(4)),
-            rsi: Math.floor(baseData.rsi * randomFactor),
-            ma20: parseFloat((baseValue * randomFactor * 0.99).toFixed(4)),
-            ma50: parseFloat((baseValue * randomFactor * 0.985).toFixed(4)),
-            bollUpper: parseFloat((baseValue * randomFactor * 1.02).toFixed(4)),
-            bollLower: parseFloat((baseValue * randomFactor * 0.98).toFixed(4))
-        };
-    });
+    // This function is no longer needed since we're only using USD/JPY
+    console.log('generateSampleDataForPair not needed for single pair implementation');
 }
 
 // Load real data from Alpha Vantage API
@@ -310,21 +226,24 @@ async function fetchFreshData() {
         // Show loading state
         showLoading(true);
         
-        // Load real data for each currency pair
-        for (const pair of CONFIG.currencyPairs) {
-            const [baseCurrency, quoteCurrency] = pair.split('/');
-            
-            // Fetch FX data
-            await fetchCurrencyPairData(baseCurrency, quoteCurrency);
-            
-            // Fetch interest rates for each currency if we don't have them yet
-            if (!state.interestRates[baseCurrency]) {
-                await fetchInterestRateData(baseCurrency);
-            }
-            
-            if (!state.interestRates[quoteCurrency]) {
-                await fetchInterestRateData(quoteCurrency);
-            }
+        // Since we're only using USD/JPY now, we only need to fetch data for that pair
+        const [baseCurrency, quoteCurrency] = CONFIG.defaultPair.split('/');
+        
+        // Fetch FX data
+        const result = await fetchCurrencyPairData(baseCurrency, quoteCurrency);
+        
+        // If we got an error with a specific message, throw it to be caught in the catch block
+        if (result && result.error) {
+            throw new Error(result.error);
+        }
+        
+        // Fetch interest rates for USD and JPY
+        if (!state.interestRates[baseCurrency]) {
+            await fetchInterestRateData(baseCurrency);
+        }
+        
+        if (!state.interestRates[quoteCurrency]) {
+            await fetchInterestRateData(quoteCurrency);
         }
         
         // Set up all available dates from the default pair
@@ -346,7 +265,23 @@ async function fetchFreshData() {
         updateLastUpdateTime();
     } catch (error) {
         console.error('Error loading real data:', error);
-        alert('Could not load data from Alpha Vantage. Falling back to demo mode.');
+        
+        // Provide more specific error messages
+        let errorMessage = 'Could not load data from Alpha Vantage. ';
+        
+        // Check for common API error patterns
+        if (error.message.includes('API call frequency')) {
+            errorMessage += 'API call limit reached. Please try again later (free tier is limited to 25 calls per day).';
+        } else if (error.message.includes('Invalid API call') || error.message.includes('apikey')) {
+            errorMessage += 'Invalid API key. Please check your API key and try again.';
+        } else if (error.message.includes('network') || error.message.includes('connection')) {
+            errorMessage += 'Network error. Please check your internet connection.';
+        } else {
+            // Include the specific error message
+            errorMessage += error.message;
+        }
+        
+        alert(errorMessage);
         loadDemoData();
     } finally {
         showLoading(false);
@@ -384,11 +319,15 @@ async function fetchCurrencyPairData(fromCurrency, toCurrency) {
         const data = await response.json();
         
         if (data['Error Message']) {
-            throw new Error(data['Error Message']);
+            return { error: data['Error Message'] };
+        }
+        
+        if (data['Note'] && data['Note'].includes('call frequency')) {
+            return { error: 'API call frequency limit reached. ' + data['Note'] };
         }
         
         if (!data['Time Series FX (Daily)']) {
-            throw new Error('No FX data returned from API');
+            return { error: 'No FX data returned from API' };
         }
         
         // Process the data
@@ -414,12 +353,7 @@ async function fetchCurrencyPairData(fromCurrency, toCurrency) {
         
         return processedData;
     } catch (error) {
-        console.error(`Error fetching data for ${pair}:`, error);
-        
-        // If we failed, generate sample data instead
-        if (!state.historicalData[pair]) {
-            generateSampleDataForPair(pair);
-        }
+        return { error: error.message };
     }
 }
 
@@ -735,7 +669,7 @@ function getVisibleHistory(pairHistory, currentDate, timeframe) {
 
 // Set up event listeners for UI interactions
 function setupEventListeners() {
-    // Currency pair selection
+    // Currency pair selection (only USD/JPY now)
     elements.currencyPairsContainer.addEventListener('click', (e) => {
         const pairItem = e.target.closest('[data-pair]');
         if (pairItem) {
@@ -833,7 +767,7 @@ function updateUI() {
     elements.timeSlider.max = state.allDates.length - 1;
     elements.timeSlider.value = state.currentDateIndex;
     
-    // Get data for all currency pairs on the current date
+    // Get data for all currency pairs on the current date (just USD/JPY now)
     const currencyPairs = CONFIG.currencyPairs
         .map(pair => getPairDataForDate(pair, currentDate))
         .filter(Boolean);
@@ -857,6 +791,15 @@ function updateUI() {
 // Update the currency pairs list
 function updateCurrencyPairsList(currencyPairs) {
     elements.currencyPairsContainer.innerHTML = '';
+    
+    // Add a note about only displaying USD/JPY
+    const noteHtml = `
+        <div class="bg-blue-50 p-2 mb-4 rounded-md text-sm text-blue-700">
+            <p>Only USD/JPY is available to reduce API calls.</p>
+        </div>
+    `;
+    
+    elements.currencyPairsContainer.insertAdjacentHTML('beforeend', noteHtml);
     
     currencyPairs.forEach(pair => {
         const isSelected = pair.pair === state.selectedPair;
