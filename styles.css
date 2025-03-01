@@ -1,69 +1,10 @@
 /* Additional styles for the FX Dashboard */
 
-/* Theme variables */
-:root {
-    /* Light theme */
-    --light-bg: #f8fafc;
-    --light-card-bg: #ffffff;
-    --light-text: #1e293b;
-    --light-text-secondary: #64748b;
-    --light-border: #e2e8f0;
-    --light-hover: #f1f5f9;
-    --light-chart-grid: rgba(203, 213, 225, 0.5);
-    
-    /* Dark theme */
-    --dark-bg: #0f172a;
-    --dark-card-bg: #1e293b;
-    --dark-text: #f1f5f9;
-    --dark-text-secondary: #94a3b8;
-    --dark-border: #334155;
-    --dark-hover: #334155;
-    --dark-chart-grid: rgba(71, 85, 105, 0.5);
-    
-    /* Shared variables */
-    --primary: #3b82f6;
-    --primary-hover: #2563eb;
-    --success: #10b981;
-    --warning: #f59e0b;
-    --danger: #ef4444;
-    --card-border-radius: 1rem;
-    --card-shadow-light: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-    --card-shadow-dark: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
-    --transition-speed: 0.2s;
-    --transition-ease: cubic-bezier(0.4, 0, 0.2, 1);
-    
-    /* Default to light theme */
-    --bg: var(--light-bg);
-    --card-bg: var(--light-card-bg);
-    --text: var(--light-text);
-    --text-secondary: var(--light-text-secondary);
-    --border: var(--light-border);
-    --hover: var(--light-hover);
-    --chart-grid: var(--light-chart-grid);
-    --card-shadow: var(--card-shadow-light);
-}
-
-/* Dark theme */
-[data-theme="dark"] {
-    --bg: var(--dark-bg);
-    --card-bg: var(--dark-card-bg);
-    --text: var(--dark-text);
-    --text-secondary: var(--dark-text-secondary);
-    --border: var(--dark-border);
-    --hover: var(--dark-hover);
-    --chart-grid: var(--dark-chart-grid);
-    --card-shadow: var(--card-shadow-dark);
-}
-
 /* Base styles */
-body {
-    background-color: var(--bg);
-    color: var(--text);
-    transition: background-color var(--transition-speed) var(--transition-ease),
-                color var(--transition-speed) var(--transition-ease);
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-    line-height: 1.5;
-    letter-spacing: -0.01em;
+:root {
+    --card-border-radius: 1rem;
+    --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    --transition-speed: 0.2s;
 }
 
 .hidden {
@@ -72,61 +13,27 @@ body {
 
 /* Card styles */
 .card {
-    background-color: var(--card-bg);
+    background-color: white;
     border-radius: var(--card-border-radius);
     box-shadow: var(--card-shadow);
-    border: 1px solid var(--border);
-    transition: transform var(--transition-speed) var(--transition-ease), 
-                box-shadow var(--transition-speed) var(--transition-ease),
-                background-color var(--transition-speed) var(--transition-ease),
-                border-color var(--transition-speed) var(--transition-ease);
+    transition: transform var(--transition-speed) ease, box-shadow var(--transition-speed) ease;
 }
 
 .card:hover {
     box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
 }
 
-/* Theme toggle button */
-#themeToggle {
-    background-color: transparent;
-    border: none;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    transition: background-color var(--transition-speed) var(--transition-ease);
-}
-
-#themeToggle:hover {
-    background-color: var(--hover);
-}
-
-#themeToggle svg {
-    width: 20px;
-    height: 20px;
-    color: var(--text);
-    transition: color var(--transition-speed) var(--transition-ease);
-}
-
 /* Timeframe button styles */
 .timeframe-btn {
-    transition: all var(--transition-speed) var(--transition-ease);
-    border: 1px solid var(--border);
-    background-color: var(--card-bg);
-    color: var(--text);
+    transition: all var(--transition-speed) ease;
 }
 
 .timeframe-btn.active {
-    background-color: var(--primary);
+    background-color: #3b82f6;
     color: white;
-    border-color: var(--primary);
 }
 
-.timeframe-btn:hover:not(.active) {
-    background-color: var(--hover);
+.timeframe-btn:hover {
     transform: translateY(-1px);
 }
 
@@ -143,11 +50,11 @@ input[type=range]::-webkit-slider-thumb {
     height: 16px;
     width: 16px;
     border-radius: 50%;
-    background: var(--primary);
+    background: #3b82f6;
     cursor: pointer;
     margin-top: -6px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    transition: transform var(--transition-speed) var(--transition-ease);
+    transition: transform var(--transition-speed) ease;
 }
 
 input[type=range]::-webkit-slider-thumb:hover {
@@ -158,7 +65,7 @@ input[type=range]::-webkit-slider-runnable-track {
     width: 100%;
     height: 4px;
     cursor: pointer;
-    background: var(--border);
+    background: #e5e7eb;
     border-radius: 2px;
 }
 
@@ -198,53 +105,52 @@ input[type=range]:focus {
 /* Alert styles */
 .alert-strong {
     border-left-width: 4px;
-    border-color: var(--danger);
-    background-color: rgba(239, 68, 68, 0.1);
+    border-color: #ef4444;
+    background-color: #fee2e2;
 }
 
 .alert-medium {
     border-left-width: 4px;
-    border-color: var(--warning);
-    background-color: rgba(245, 158, 11, 0.1);
+    border-color: #f59e0b;
+    background-color: #fef3c7;
 }
 
 .alert-weak {
     border-left-width: 4px;
-    border-color: var(--primary);
-    background-color: rgba(59, 130, 246, 0.1);
+    border-color: #3b82f6;
+    background-color: #dbeafe;
 }
 
 .direction-bullish {
-    color: var(--success);
+    color: #10b981;
 }
 
 .direction-bearish {
-    color: var(--danger);
+    color: #ef4444;
 }
 
 /* Currency pair item hover effect */
 .currency-pair-item {
-    transition: all var(--transition-speed) var(--transition-ease);
+    transition: all var(--transition-speed) ease;
     border-radius: 0.5rem;
     padding: 0.75rem;
-    border: 1px solid transparent;
 }
 
 .currency-pair-item:hover {
-    background-color: var(--hover);
+    background-color: #f3f4f6;
     transform: translateX(4px);
 }
 
 .currency-pair-item.selected {
-    background-color: rgba(59, 130, 246, 0.1);
-    border-left: 4px solid var(--primary);
+    background-color: #dbeafe;
+    border-left: 4px solid #3b82f6;
 }
 
 /* Loading spinner */
 .spinner {
     border: 3px solid rgba(0, 0, 0, 0.1);
     border-radius: 50%;
-    border-top: 3px solid var(--primary);
+    border-top: 3px solid #3b82f6;
     width: 24px;
     height: 24px;
     animation: spin 1s linear infinite;
@@ -256,37 +162,29 @@ input[type=range]:focus {
     100% { transform: rotate(360deg); }
 }
 
-/* Chart container styles */
-.chart-container {
-    position: relative;
-    width: 100%;
-    height: 100%;
-    padding: 0.5rem;
-}
-
 /* Scrollbar styles */
 ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+    width: 8px;
+    height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-    background: var(--hover);
-    border-radius: 3px;
+    background: #f1f1f1;
+    border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb {
-    background: var(--text-secondary);
-    border-radius: 3px;
+    background: #c1c1c1;
+    border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: var(--text);
+    background: #a1a1a1;
 }
 
 /* Button hover effects */
 button {
-    transition: all var(--transition-speed) var(--transition-ease);
+    transition: all var(--transition-speed) ease;
 }
 
 button:hover {
@@ -312,75 +210,21 @@ button:active {
 }
 
 .indicator-container {
-    height: 280px;
+    height: 240px;
     position: relative;
-    padding: 1rem;
-    margin-bottom: 1rem;
+    padding: 0.75rem;
 }
 
 .indicator-container h3 {
-    margin-bottom: 1rem;
+    margin-bottom: 0.75rem;
     font-size: 0.875rem;
     font-weight: 500;
-    color: var(--text-secondary);
+    color: #4b5563;
 }
 
-.indicator-container canvas {
-    margin-top: 0.5rem;
-    height: calc(100% - 2.5rem) !important;
-}
-
-/* Ensure chart tooltips are visible */
-.chartjs-tooltip {
-    z-index: 10;
-    background-color: var(--card-bg);
-    border: 1px solid var(--border);
-    border-radius: 0.5rem;
-    box-shadow: var(--card-shadow);
-    padding: 0.5rem;
-    color: var(--text);
-    font-size: 0.75rem;
-    pointer-events: none;
-}
-
-/* Form elements */
-input[type="text"] {
-    background-color: var(--card-bg);
-    color: var(--text);
-    border-color: var(--border);
-    transition: border-color var(--transition-speed) var(--transition-ease),
-                background-color var(--transition-speed) var(--transition-ease),
-                color var(--transition-speed) var(--transition-ease);
-}
-
-input[type="text"]:focus {
-    border-color: var(--primary);
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
-}
-
-/* Links */
-a {
-    color: var(--primary);
-    transition: color var(--transition-speed) var(--transition-ease);
-}
-
-a:hover {
-    color: var(--primary-hover);
-}
-
-/* Info panels */
-.bg-blue-50 {
-    background-color: rgba(59, 130, 246, 0.1);
-    border: 1px solid rgba(59, 130, 246, 0.2);
-    color: var(--text);
-}
-
-/* Animations */
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-.card {
-    animation: fadeIn 0.3s ease-out;
+/* Chart container styles */
+.chart-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
 }
