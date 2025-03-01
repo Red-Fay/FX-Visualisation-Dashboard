@@ -17,8 +17,15 @@ const CONFIG = {
     // API settings
     apiBaseUrl: 'https://www.alphavantage.co/query',
     
-    // Local storage key for API key
-    apiKeyStorageKey: 'fxDashboardApiKey'
+    // Local storage keys
+    apiKeyStorageKey: 'fxDashboardApiKey',
+    
+    // Data storage keys
+    dataStorageKeys: {
+        historicalData: 'fxDashboardHistoricalData',
+        interestRates: 'fxDashboardInterestRates',
+        lastUpdateTime: 'fxDashboardLastUpdate'
+    }
 };
 
 // State management
@@ -192,7 +199,9 @@ const elements = {
     playPauseBtn: document.getElementById('playPauseBtn'),
     timeframeButtons: document.querySelectorAll('.timeframe-btn'),
     apiKeyInput: document.getElementById('apiKey'),
-    saveApiKeyBtn: document.getElementById('saveApiKey')
+    saveApiKeyBtn: document.getElementById('saveApiKey'),
+    refreshDataBtn: document.getElementById('refreshData'),
+    lastUpdateTime: document.getElementById('lastUpdateTime')
 };
 
 // Initialize the application
@@ -208,6 +217,9 @@ function initApp() {
     } else {
         loadRealData();
     }
+    
+    // Update last update time display
+    updateLastUpdateTime();
     
     // Set up event listeners
     setupEventListeners();
@@ -264,6 +276,36 @@ async function loadRealData() {
         return;
     }
     
+    // Check if we have cached data
+    const cachedHistoricalData = localStorage.getItem(CONFIG.dataStorageKeys.historicalData);
+    const cachedInterestRates = localStorage.getItem(CONFIG.dataStorageKeys.interestRates);
+    
+    if (cachedHistoricalData && cachedInterestRates) {
+        // Use cached data
+        console.log('Using cached data from localStorage');
+        state.historicalData = JSON.parse(cachedHistoricalData);
+        state.interestRates = JSON.parse(cachedInterestRates);
+        
+        // Set up dates from cached data
+        if (state.historicalData[CONFIG.defaultPair]) {
+            state.allDates = state.historicalData[CONFIG.defaultPair].map(d => d.date);
+            state.currentDateIndex = state.allDates.length - 1;
+        }
+        
+        // Update UI with cached data
+        updateUI();
+        
+        // Show last update time in UI
+        updateLastUpdateTime();
+        return;
+    }
+    
+    // If no cached data, fetch fresh data
+    await fetchFreshData();
+}
+
+// Fetch fresh data from the API
+async function fetchFreshData() {
     try {
         // Show loading state
         showLoading(true);
@@ -291,8 +333,17 @@ async function loadRealData() {
             state.currentDateIndex = state.allDates.length - 1; // Start at most recent date
         }
         
+        // Cache the fetched data with current timestamp
+        const now = new Date().toISOString();
+        localStorage.setItem(CONFIG.dataStorageKeys.historicalData, JSON.stringify(state.historicalData));
+        localStorage.setItem(CONFIG.dataStorageKeys.interestRates, JSON.stringify(state.interestRates));
+        localStorage.setItem(CONFIG.dataStorageKeys.lastUpdateTime, now);
+        
         // Update the UI
         updateUI();
+        
+        // Show last update time in UI
+        updateLastUpdateTime();
     } catch (error) {
         console.error('Error loading real data:', error);
         alert('Could not load data from Alpha Vantage. Falling back to demo mode.');
@@ -300,6 +351,27 @@ async function loadRealData() {
     } finally {
         showLoading(false);
     }
+}
+
+// Update the display of the last update time
+function updateLastUpdateTime() {
+    const lastUpdateElement = document.getElementById('lastUpdateTime');
+    const lastUpdateTime = localStorage.getItem(CONFIG.dataStorageKeys.lastUpdateTime);
+    
+    if (lastUpdateTime) {
+        const date = new Date(lastUpdateTime);
+        lastUpdateElement.textContent = date.toLocaleString();
+    } else {
+        lastUpdateElement.textContent = 'Never';
+    }
+}
+
+// Clear the data cache
+function clearDataCache() {
+    localStorage.removeItem(CONFIG.dataStorageKeys.historicalData);
+    localStorage.removeItem(CONFIG.dataStorageKeys.interestRates);
+    localStorage.removeItem(CONFIG.dataStorageKeys.lastUpdateTime);
+    console.log('Data cache cleared');
 }
 
 // Fetch currency pair data from Alpha Vantage
@@ -707,6 +779,13 @@ function setupEventListeners() {
             alert('API key saved successfully!');
         } else {
             alert('Please enter a valid API key.');
+        }
+    });
+    
+    // Refresh data button
+    elements.refreshDataBtn.addEventListener('click', async () => {
+        if (confirm('Refresh data from Alpha Vantage API?')) {
+            await fetchFreshData();
         }
     });
 }
@@ -1153,7 +1232,14 @@ function formatDate(dateString) {
 
 // Show/hide loading state
 function showLoading(isLoading) {
-    // Implement loading state UI if needed
+    const loadingIndicator = document.getElementById('loadingIndicator');
+    if (loadingIndicator) {
+        if (isLoading) {
+            loadingIndicator.classList.remove('hidden');
+        } else {
+            loadingIndicator.classList.add('hidden');
+        }
+    }
 }
 
 // Initialize the app when the DOM is loaded
