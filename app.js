@@ -44,13 +44,45 @@ const state = {
     // Update the current API key
     setApiKey(key) {
         this.apiKey = key;
-        localStorage.setItem(CONFIG.apiKeyStorageKey, key);
+        saveToStorage(CONFIG.apiKeyStorageKey, key);
         // Reload data if key is provided
         if (key) {
             loadRealData();
         }
     }
 };
+
+// Helper functions for storage with fallback
+function saveToStorage(key, data) {
+    try {
+        localStorage.setItem(key, data);
+        console.log(`Saved to localStorage: ${key}`);
+        return true;
+    } catch (error) {
+        console.error("localStorage error:", error);
+        try {
+            sessionStorage.setItem(key, data);
+            console.log(`Fallback to sessionStorage successful: ${key}`);
+            return true;
+        } catch (sessionError) {
+            console.error("sessionStorage error:", sessionError);
+            return false;
+        }
+    }
+}
+
+function getFromStorage(key) {
+    let data = localStorage.getItem(key);
+    if (!data) {
+        data = sessionStorage.getItem(key);
+        if (data) {
+            console.log(`Retrieved from sessionStorage: ${key}`);
+        }
+    } else {
+        console.log(`Retrieved from localStorage: ${key}`);
+    }
+    return data;
+}
 
 // Sample historical data for demo mode (based on your original data)
 const sampleData = {
@@ -146,30 +178,58 @@ const elements = {
 
 // Initialize the application
 function initApp() {
+    console.log("Initializing app");
+    
     // Load API key from storage
     if (state.apiKey) {
         elements.apiKeyInput.value = state.apiKey;
+        console.log("Found API key in storage");
     }
     
     // Check for cached data first, regardless of demo mode
-    const cachedHistoricalData = localStorage.getItem(CONFIG.dataStorageKeys.historicalData);
-    const cachedInterestRates = localStorage.getItem(CONFIG.dataStorageKeys.interestRates);
+    const cachedHistoricalData = getFromStorage(CONFIG.dataStorageKeys.historicalData);
+    const cachedInterestRates = getFromStorage(CONFIG.dataStorageKeys.interestRates);
+    const lastUpdateTime = getFromStorage(CONFIG.dataStorageKeys.lastUpdateTime);
+    
+    console.log("Cached data available:", {
+        historicalData: !!cachedHistoricalData, 
+        interestRates: !!cachedInterestRates,
+        lastUpdateTime: lastUpdateTime || 'None'
+    });
     
     if (cachedHistoricalData && cachedInterestRates) {
-        // Use cached data if available
-        console.log('Using cached data from localStorage');
-        state.historicalData = JSON.parse(cachedHistoricalData);
-        state.interestRates = JSON.parse(cachedInterestRates);
-        
-        // Set up dates from cached data
-        if (state.historicalData[CONFIG.defaultPair]) {
+        try {
+            console.log("Attempting to parse cached data");
+            const parsedHistoricalData = JSON.parse(cachedHistoricalData);
+            const parsedInterestRates = JSON.parse(cachedInterestRates);
+            
+            // Validate the data - make sure it has the expected structure
+            if (!parsedHistoricalData[CONFIG.defaultPair] || !parsedHistoricalData[CONFIG.defaultPair].length) {
+                console.error("Invalid historical data structure in cache");
+                throw new Error("Invalid cached historical data");
+            }
+            
+            // Data looks valid, assign to state
+            state.historicalData = parsedHistoricalData;
+            state.interestRates = parsedInterestRates;
+            
+            // Set up dates from cached data
+            console.log("Setting up dates from cached data");
             state.allDates = state.historicalData[CONFIG.defaultPair].map(d => d.date);
             state.currentDateIndex = state.allDates.length - 1;
+            console.log("Dates setup complete, found", state.allDates.length, "dates");
+            
+            // Update UI with cached data
+            console.log("Updating UI with cached data");
+            updateUI();
+        } catch (error) {
+            console.error("Error loading cached data:", error);
+            console.log("Falling back to demo data");
+            clearDataCache(); // Clear possibly corrupted cache
+            loadDemoData();
         }
-        
-        // Update UI with cached data
-        updateUI();
     } else {
+        console.log("No cached data found, loading based on mode");
         // No cached data, so load based on mode and API key
         if (CONFIG.demoMode || !state.apiKey) {
             loadDemoData();
@@ -183,10 +243,14 @@ function initApp() {
     
     // Set up event listeners
     setupEventListeners();
+    
+    // Log state after initialization
+    console.log("App initialization complete");
 }
 
 // Load sample data for demo mode
 function loadDemoData() {
+    console.log("Loading demo data");
     state.historicalData = JSON.parse(JSON.stringify(sampleData));
     state.interestRates = JSON.parse(JSON.stringify(sampleInterestRates));
     
@@ -206,6 +270,7 @@ function generateSampleDataForPair(pair) {
 
 // Load real data from Alpha Vantage API
 async function loadRealData() {
+    console.log("Loading real data");
     if (!state.apiKey) {
         console.warn('No API key provided. Falling back to demo mode.');
         loadDemoData();
@@ -213,27 +278,32 @@ async function loadRealData() {
     }
     
     // Check if we have cached data
-    const cachedHistoricalData = localStorage.getItem(CONFIG.dataStorageKeys.historicalData);
-    const cachedInterestRates = localStorage.getItem(CONFIG.dataStorageKeys.interestRates);
+    const cachedHistoricalData = getFromStorage(CONFIG.dataStorageKeys.historicalData);
+    const cachedInterestRates = getFromStorage(CONFIG.dataStorageKeys.interestRates);
     
     if (cachedHistoricalData && cachedInterestRates) {
         // Use cached data
         console.log('Using cached data from localStorage');
-        state.historicalData = JSON.parse(cachedHistoricalData);
-        state.interestRates = JSON.parse(cachedInterestRates);
-        
-        // Set up dates from cached data
-        if (state.historicalData[CONFIG.defaultPair]) {
-            state.allDates = state.historicalData[CONFIG.defaultPair].map(d => d.date);
-            state.currentDateIndex = state.allDates.length - 1;
+        try {
+            state.historicalData = JSON.parse(cachedHistoricalData);
+            state.interestRates = JSON.parse(cachedInterestRates);
+            
+            // Set up dates from cached data
+            if (state.historicalData[CONFIG.defaultPair]) {
+                state.allDates = state.historicalData[CONFIG.defaultPair].map(d => d.date);
+                state.currentDateIndex = state.allDates.length - 1;
+            }
+            
+            // Update UI with cached data
+            updateUI();
+            
+            // Show last update time in UI
+            updateLastUpdateTime();
+            return;
+        } catch (error) {
+            console.error("Error parsing cached data:", error);
+            // Continue to fetch fresh data
         }
-        
-        // Update UI with cached data
-        updateUI();
-        
-        // Show last update time in UI
-        updateLastUpdateTime();
-        return;
     }
     
     // If no cached data, fetch fresh data
@@ -242,6 +312,7 @@ async function loadRealData() {
 
 // Fetch fresh data from the API
 async function fetchFreshData() {
+    console.log("Fetching fresh data from API");
     try {
         // Show loading state
         showLoading(true);
@@ -250,6 +321,7 @@ async function fetchFreshData() {
         const [baseCurrency, quoteCurrency] = CONFIG.defaultPair.split('/');
         
         // Fetch FX data
+        console.log(`Fetching data for ${CONFIG.defaultPair}`);
         const result = await fetchCurrencyPairData(baseCurrency, quoteCurrency);
         
         // If we got an error with a specific message, throw it to be caught in the catch block
@@ -270,13 +342,36 @@ async function fetchFreshData() {
         if (state.historicalData[CONFIG.defaultPair]) {
             state.allDates = state.historicalData[CONFIG.defaultPair].map(d => d.date);
             state.currentDateIndex = state.allDates.length - 1; // Start at most recent date
+            console.log(`Found ${state.allDates.length} dates in fetched data`);
+        } else {
+            console.error("Default pair not found in fetched data");
+            throw new Error("Failed to fetch data for default pair");
         }
         
         // Cache the fetched data with current timestamp
-        const now = new Date().toISOString();
-        localStorage.setItem(CONFIG.dataStorageKeys.historicalData, JSON.stringify(state.historicalData));
-        localStorage.setItem(CONFIG.dataStorageKeys.interestRates, JSON.stringify(state.interestRates));
-        localStorage.setItem(CONFIG.dataStorageKeys.lastUpdateTime, now);
+        try {
+            const now = new Date().toISOString();
+            console.log("Saving data to cache at", now);
+            
+            // Check the size of the data
+            const historicalDataStr = JSON.stringify(state.historicalData);
+            const interestRatesStr = JSON.stringify(state.interestRates);
+            
+            console.log(`Data sizes - Historical: ${historicalDataStr.length} bytes, Interest Rates: ${interestRatesStr.length} bytes`);
+            
+            // Save data to storage
+            const historicalSaved = saveToStorage(CONFIG.dataStorageKeys.historicalData, historicalDataStr);
+            const interestRatesSaved = saveToStorage(CONFIG.dataStorageKeys.interestRates, interestRatesStr);
+            const timestampSaved = saveToStorage(CONFIG.dataStorageKeys.lastUpdateTime, now);
+            
+            if (historicalSaved && interestRatesSaved && timestampSaved) {
+                console.log("All data saved to storage successfully");
+            } else {
+                console.error("Failed to save all data to storage");
+            }
+        } catch (cacheError) {
+            console.error("Error caching data:", cacheError);
+        }
         
         // Update the UI
         updateUI();
@@ -311,7 +406,7 @@ async function fetchFreshData() {
 // Update the display of the last update time
 function updateLastUpdateTime() {
     const lastUpdateElement = document.getElementById('lastUpdateTime');
-    const lastUpdateTime = localStorage.getItem(CONFIG.dataStorageKeys.lastUpdateTime);
+    const lastUpdateTime = getFromStorage(CONFIG.dataStorageKeys.lastUpdateTime);
     
     if (lastUpdateTime) {
         const date = new Date(lastUpdateTime);
@@ -323,10 +418,20 @@ function updateLastUpdateTime() {
 
 // Clear the data cache
 function clearDataCache() {
-    localStorage.removeItem(CONFIG.dataStorageKeys.historicalData);
-    localStorage.removeItem(CONFIG.dataStorageKeys.interestRates);
-    localStorage.removeItem(CONFIG.dataStorageKeys.lastUpdateTime);
-    console.log('Data cache cleared');
+    console.log("Clearing data cache");
+    try {
+        localStorage.removeItem(CONFIG.dataStorageKeys.historicalData);
+        localStorage.removeItem(CONFIG.dataStorageKeys.interestRates);
+        localStorage.removeItem(CONFIG.dataStorageKeys.lastUpdateTime);
+        
+        sessionStorage.removeItem(CONFIG.dataStorageKeys.historicalData);
+        sessionStorage.removeItem(CONFIG.dataStorageKeys.interestRates);
+        sessionStorage.removeItem(CONFIG.dataStorageKeys.lastUpdateTime);
+        
+        console.log('Data cache cleared from both localStorage and sessionStorage');
+    } catch (error) {
+        console.error('Error clearing cache:', error);
+    }
 }
 
 // Fetch currency pair data from Alpha Vantage
@@ -335,22 +440,27 @@ async function fetchCurrencyPairData(fromCurrency, toCurrency) {
     
     try {
         const url = `${CONFIG.apiBaseUrl}?function=FX_DAILY&from_symbol=${fromCurrency}&to_symbol=${toCurrency}&outputsize=full&apikey=${state.apiKey}`;
+        console.log(`Making API request for ${pair}`);
         const response = await fetch(url);
         const data = await response.json();
         
         if (data['Error Message']) {
+            console.error(`API error for ${pair}:`, data['Error Message']);
             return { error: data['Error Message'] };
         }
         
         if (data['Note'] && data['Note'].includes('call frequency')) {
+            console.error(`API frequency limit reached for ${pair}:`, data['Note']);
             return { error: 'API call frequency limit reached. ' + data['Note'] };
         }
         
         if (!data['Time Series FX (Daily)']) {
+            console.error(`No FX data returned for ${pair}`);
             return { error: 'No FX data returned from API' };
         }
         
         // Process the data
+        console.log(`Processing data for ${pair}`);
         const timeSeriesData = data['Time Series FX (Daily)'];
         const processedData = Object.entries(timeSeriesData).map(([date, values]) => {
             return {
@@ -365,6 +475,8 @@ async function fetchCurrencyPairData(fromCurrency, toCurrency) {
             };
         }).sort((a, b) => new Date(a.date) - new Date(b.date)); // Sort chronologically
         
+        console.log(`Processed ${processedData.length} data points for ${pair}`);
+        
         // Calculate indicators
         calculateIndicators(processedData);
         
@@ -373,12 +485,14 @@ async function fetchCurrencyPairData(fromCurrency, toCurrency) {
         
         return processedData;
     } catch (error) {
+        console.error(`Error fetching data for ${pair}:`, error);
         return { error: error.message };
     }
 }
 
 // Fetch interest rate data (in real world, we'd use a proper API for this)
 async function fetchInterestRateData(currency) {
+    console.log(`Fetching interest rate data for ${currency}`);
     // In a real implementation, you would fetch this from a real API
     // For now, we'll just use our sample data
     state.interestRates[currency] = sampleInterestRates[currency] || [];
