@@ -1401,24 +1401,26 @@ function updateRSIChart(data) {
     overboughtLabel.textContent = 'Overbought';
     overboughtLabel.style.position = 'absolute';
     overboughtLabel.style.left = '10px';
-    overboughtLabel.style.top = '25%';
+    overboughtLabel.style.top = '15%';
     overboughtLabel.style.backgroundColor = 'rgba(239, 68, 68, 0.1)';
     overboughtLabel.style.color = '#ef4444';
     overboughtLabel.style.padding = '2px 6px';
     overboughtLabel.style.borderRadius = '4px';
     overboughtLabel.style.fontSize = '10px';
+    overboughtLabel.style.zIndex = '20';
     
     const oversoldLabel = document.createElement('div');
     oversoldLabel.className = 'chart-label oversold-label';
     oversoldLabel.textContent = 'Oversold';
     oversoldLabel.style.position = 'absolute';
     oversoldLabel.style.left = '10px';
-    oversoldLabel.style.bottom = '25%';
+    oversoldLabel.style.bottom = '15%';
     oversoldLabel.style.backgroundColor = 'rgba(16, 185, 129, 0.1)';
     oversoldLabel.style.color = '#10b981';
     oversoldLabel.style.padding = '2px 6px';
     oversoldLabel.style.borderRadius = '4px';
     oversoldLabel.style.fontSize = '10px';
+    oversoldLabel.style.zIndex = '20';
     
     // Get the parent container and make it position relative
     const container = canvas.parentElement;
