@@ -137,6 +137,14 @@ const sampleData = {
 // Sample interest rate data for demo mode - keep only USD and JPY
 const sampleInterestRates = {
     'USD': [
+        { date: '2023-01-31', rate: 4.50 },
+        { date: '2023-03-22', rate: 4.75 },
+        { date: '2023-05-03', rate: 5.00 },
+        { date: '2023-06-14', rate: 5.25 },
+        { date: '2023-07-26', rate: 5.50 },
+        { date: '2023-09-20', rate: 5.50 },
+        { date: '2023-11-01', rate: 5.50 },
+        { date: '2023-12-13', rate: 5.50 },
         { date: '2024-01-31', rate: 5.50 },
         { date: '2024-03-20', rate: 5.50 },
         { date: '2024-05-01', rate: 5.25 },
@@ -146,7 +154,15 @@ const sampleInterestRates = {
         { date: '2024-10-23', rate: 4.75 }
     ],
     'JPY': [
-        { date: '2024-01-31', rate: 0.10 },
+        { date: '2023-01-18', rate: -0.10 },
+        { date: '2023-03-10', rate: -0.10 },
+        { date: '2023-04-28', rate: -0.10 },
+        { date: '2023-06-16', rate: -0.10 },
+        { date: '2023-07-28', rate: -0.10 },
+        { date: '2023-09-22', rate: -0.10 },
+        { date: '2023-10-31', rate: -0.10 },
+        { date: '2023-12-19', rate: -0.10 },
+        { date: '2024-01-23', rate: 0.00 },
         { date: '2024-03-19', rate: 0.10 },
         { date: '2024-04-26', rate: 0.25 },
         { date: '2024-06-14', rate: 0.25 },
@@ -473,7 +489,7 @@ function clearDataCache() {
     }
 }
 
-// Fetch currency pair data from Alpha Vantage
+// Fetch currency pair data from Alpha Vantage API
 async function fetchCurrencyPairData(fromCurrency, toCurrency) {
     const pair = `${fromCurrency}/${toCurrency}`;
     
@@ -529,12 +545,80 @@ async function fetchCurrencyPairData(fromCurrency, toCurrency) {
     }
 }
 
-// Fetch interest rate data (in real world, we'd use a proper API for this)
+// Fetch interest rate data from Alpha Vantage API
 async function fetchInterestRateData(currency) {
     console.log(`Fetching interest rate data for ${currency}`);
-    // In a real implementation, you would fetch this from a real API
-    // For now, we'll just use our sample data
-    state.interestRates[currency] = sampleInterestRates[currency] || [];
+    
+    // Check if we're in demo mode
+    if (CONFIG.demoMode) {
+        console.log(`Using sample interest rate data for ${currency} (demo mode)`);
+        state.interestRates[currency] = sampleInterestRates[currency] || [];
+        return;
+    }
+    
+    try {
+        // For real implementation, we'll use Alpha Vantage's FEDERAL_FUNDS_RATE or TREASURY_YIELD API
+        // This endpoint gives us interest rate data for various countries
+        // Note: Alpha Vantage doesn't have a direct endpoint for all central bank rates
+        // So we'll use treasury yields as a proxy for interest rates
+        
+        // For USD, we'll use the Federal Funds Rate
+        // For other currencies, we'll use the 3-month Treasury Yield as a proxy
+        let endpoint = '';
+        let dataKey = '';
+        
+        if (currency === 'USD') {
+            endpoint = 'FEDERAL_FUNDS_RATE';
+            dataKey = 'data';
+        } else {
+            // For other currencies, we could use TREASURY_YIELD but Alpha Vantage
+            // doesn't provide this for all countries, so we'll fall back to sample data
+            console.log(`No direct API for ${currency} interest rates, using sample data`);
+            state.interestRates[currency] = sampleInterestRates[currency] || [];
+            return;
+        }
+        
+        const url = `${CONFIG.apiBaseUrl}?function=${endpoint}&interval=monthly&apikey=${state.apiKey}`;
+        console.log(`Making API request for ${currency} interest rates: ${url}`);
+        
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        if (data['Error Message']) {
+            console.error(`API error for ${currency} interest rates:`, data['Error Message']);
+            throw new Error(data['Error Message']);
+        }
+        
+        if (data['Note'] && data['Note'].includes('call frequency')) {
+            console.error(`API frequency limit reached for ${currency} interest rates:`, data['Note']);
+            throw new Error('API call frequency limit reached. ' + data['Note']);
+        }
+        
+        // Process the data
+        if (!data[dataKey]) {
+            console.error(`No interest rate data returned for ${currency}`);
+            throw new Error(`No interest rate data returned for ${currency}`);
+        }
+        
+        // Transform the data to our format
+        const processedData = data[dataKey].map(item => {
+            return {
+                date: item.date,
+                rate: parseFloat(item.value)
+            };
+        }).sort((a, b) => new Date(a.date) - new Date(b.date)); // Sort chronologically
+        
+        console.log(`Processed ${processedData.length} interest rate data points for ${currency}`);
+        
+        // Store the data
+        state.interestRates[currency] = processedData;
+    } catch (error) {
+        console.error(`Error fetching interest rate data for ${currency}:`, error);
+        console.log(`Falling back to sample data for ${currency}`);
+        
+        // Fall back to sample data if there's an error
+        state.interestRates[currency] = sampleInterestRates[currency] || [];
+    }
 }
 
 // Calculate technical indicators for a given dataset
@@ -832,12 +916,29 @@ function getVisibleHistory(pairHistory, currentDate, timeframe) {
     const cutoffDate = new Date(currentDateObj);
     cutoffDate.setDate(cutoffDate.getDate() - daysToShow);
     
-    const visibleHistory = pairHistory.filter(d => {
-        const date = new Date(d.date);
-        return date <= currentDateObj && date >= cutoffDate;
-    });
+    // For rate differential data, we want to show all data points up to the current date
+    // For other data, we filter based on the timeframe
+    const isRateDifferential = pairHistory.length > 0 && 'diff' in pairHistory[0];
     
-    return visibleHistory;
+    if (isRateDifferential) {
+        // For rate differential, show all data points up to the current date
+        // but ensure we have at least a few months of history for context
+        const minCutoffDate = new Date(currentDateObj);
+        minCutoffDate.setMonth(minCutoffDate.getMonth() - 12); // Always show at least 12 months
+        
+        const effectiveCutoffDate = cutoffDate < minCutoffDate ? minCutoffDate : cutoffDate;
+        
+        return pairHistory.filter(d => {
+            const date = new Date(d.date);
+            return date <= currentDateObj && date >= effectiveCutoffDate;
+        });
+    } else {
+        // For regular price data, filter based on the timeframe
+        return pairHistory.filter(d => {
+            const date = new Date(d.date);
+            return date <= currentDateObj && date >= cutoffDate;
+        });
+    }
 }
 
 // Set up event listeners for UI interactions
@@ -1156,7 +1257,11 @@ function updateCharts(currentDate) {
     // Update rate differential chart
     const [baseCurrency, quoteCurrency] = state.selectedPair.split('/');
     const diffHistory = getRateDifferentialHistory(baseCurrency, quoteCurrency);
-    updateDiffChart(diffHistory);
+    
+    // Filter the differential history based on the selected timeframe
+    const visibleDiffHistory = getVisibleHistory(diffHistory, currentDate, state.timeframe);
+    
+    updateDiffChart(visibleDiffHistory);
 }
 
 // Update the main price chart
@@ -1443,18 +1548,42 @@ function updateDiffChart(data) {
         diffChart.destroy();
     }
     
+    // If no data, show a message
+    if (!data || data.length === 0) {
+        const container = document.getElementById('diffChart').parentElement;
+        container.innerHTML = '<div class="flex items-center justify-center h-full text-gray-500">No rate differential data available</div>';
+        return;
+    }
+    
+    // Filter data to show only up to the current date
+    const currentDate = state.allDates[state.currentDateIndex];
+    const visibleData = data.filter(d => d.date <= currentDate);
+    
+    if (visibleData.length === 0) {
+        const container = document.getElementById('diffChart').parentElement;
+        container.innerHTML = '<div class="flex items-center justify-center h-full text-gray-500">No rate differential data available for this date</div>';
+        return;
+    }
+    
+    // Recreate the canvas if it was replaced with a message
+    const container = document.getElementById('diffChart').parentElement;
+    if (!document.getElementById('diffChart')) {
+        container.innerHTML = '<canvas id="diffChart"></canvas>';
+        ctx = document.getElementById('diffChart').getContext('2d');
+    }
+    
     // Calculate the current differential value (most recent data point)
-    const currentDiff = data.length > 0 ? parseFloat(data[data.length - 1].diff) : 0;
+    const currentDiff = visibleData.length > 0 ? parseFloat(visibleData[visibleData.length - 1].diff) : 0;
     
     // Create a simple chart without custom plugins
     diffChart = new Chart(ctx, {
         type: 'line',
         data: {
-            labels: data.map(d => d.date),
+            labels: visibleData.map(d => d.date),
             datasets: [
                 {
                     label: 'Interest Rate Differential (%)',
-                    data: data.map(d => d.diff),
+                    data: visibleData.map(d => d.diff),
                     borderColor: 'rgb(59, 130, 246)',
                     backgroundColor: 'rgba(59, 130, 246, 0.1)',
                     borderWidth: 2,
@@ -1466,7 +1595,7 @@ function updateDiffChart(data) {
                 // Add zero line as a dataset
                 {
                     label: 'Zero Line',
-                    data: Array(data.length).fill(0),
+                    data: Array(visibleData.length).fill(0),
                     type: 'line',
                     borderColor: 'rgba(0, 0, 0, 0.3)',
                     borderWidth: 1,
@@ -1504,8 +1633,9 @@ function updateDiffChart(data) {
                 x: {
                     type: 'time',
                     time: {
-                        unit: 'month',
+                        unit: visibleData.length > 30 ? 'month' : 'day',
                         displayFormats: {
+                            day: 'MMM d',
                             month: 'MMM'
                         }
                     },
@@ -1547,7 +1677,7 @@ function updateDiffChart(data) {
     });
     
     // Add current value label directly to the canvas
-    if (data.length > 0) {
+    if (visibleData.length > 0) {
         const canvas = document.getElementById('diffChart');
         const currentValueLabel = document.createElement('div');
         currentValueLabel.className = 'chart-label current-value-label';
@@ -1561,6 +1691,7 @@ function updateDiffChart(data) {
         currentValueLabel.style.borderRadius = '4px';
         currentValueLabel.style.fontSize = '10px';
         currentValueLabel.style.fontWeight = 'bold';
+        currentValueLabel.style.zIndex = '20';
         
         // Get the parent container and make it position relative
         const container = canvas.parentElement;
