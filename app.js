@@ -1,5 +1,8 @@
 // FX Dashboard Application
 
+// Register Chart.js plugins
+Chart.register(ChartAnnotation);
+
 // Configuration
 const CONFIG = {
     // Temporarily limited to only USD/JPY to reduce API calls
@@ -1291,6 +1294,34 @@ function updateRSIChart(data) {
                 ...chartConfig.plugins,
                 legend: {
                     display: false // Hide legend to save space
+                },
+                annotation: {
+                    annotations: {
+                        overboughtLabel: {
+                            type: 'label',
+                            xValue: data[data.length - 1].date,
+                            yValue: 80,
+                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                            content: 'Overbought',
+                            font: {
+                                size: 10
+                            },
+                            color: '#ef4444',
+                            padding: 4
+                        },
+                        oversoldLabel: {
+                            type: 'label',
+                            xValue: data[data.length - 1].date,
+                            yValue: 20,
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            content: 'Oversold',
+                            font: {
+                                size: 10
+                            },
+                            color: '#3b82f6',
+                            padding: 4
+                        }
+                    }
                 }
             },
             scales: {
@@ -1321,10 +1352,24 @@ function updateRSIChart(data) {
                     max: 100,
                     grid: {
                         color: function(context) {
-                            if (context.tick.value === 30 || context.tick.value === 70) {
-                                return 'rgba(239, 68, 68, 0.2)';
+                            if (context.tick.value === 30) {
+                                return 'rgba(59, 130, 246, 0.5)'; // Blue for oversold
+                            } else if (context.tick.value === 50) {
+                                return 'rgba(0, 0, 0, 0.2)'; // Darker for centerline
+                            } else if (context.tick.value === 70) {
+                                return 'rgba(239, 68, 68, 0.5)'; // Red for overbought
+                            } else if (context.tick.value === 0 || context.tick.value === 100) {
+                                return 'rgba(0, 0, 0, 0.3)'; // Darker for extremes
                             }
                             return 'rgba(0, 0, 0, 0.05)';
+                        },
+                        lineWidth: function(context) {
+                            if (context.tick.value === 0 || context.tick.value === 30 || 
+                                context.tick.value === 50 || context.tick.value === 70 || 
+                                context.tick.value === 100) {
+                                return 1.5; // Thicker lines for key levels
+                            }
+                            return 0.5;
                         }
                     },
                     ticks: {
@@ -1333,8 +1378,8 @@ function updateRSIChart(data) {
                         },
                         padding: 3,
                         callback: function(value) {
-                            // Only show 0, 30, 70, and 100 values
-                            if (value === 0 || value === 30 || value === 70 || value === 100) {
+                            // Show 0, 30, 50, 70, and 100 values
+                            if (value === 0 || value === 30 || value === 50 || value === 70 || value === 100) {
                                 return value;
                             }
                             return '';
@@ -1354,6 +1399,10 @@ function updateDiffChart(data) {
         diffChart.destroy();
     }
     
+    // Calculate the current differential value (most recent data point)
+    const currentDiff = data.length > 0 ? parseFloat(data[data.length - 1].diff) : 0;
+    
+    // Create a more streamlined visualization
     diffChart = new Chart(ctx, {
         type: 'bar',
         data: {
@@ -1377,6 +1426,41 @@ function updateDiffChart(data) {
                 ...chartConfig.plugins,
                 legend: {
                     display: false // Hide legend to save space
+                },
+                annotation: {
+                    annotations: {
+                        zeroLine: {
+                            type: 'line',
+                            yMin: 0,
+                            yMax: 0,
+                            borderColor: 'rgba(0, 0, 0, 0.3)',
+                            borderWidth: 1,
+                            borderDash: [4, 4]
+                        },
+                        currentValueLabel: {
+                            type: 'label',
+                            xValue: data[data.length - 1].date,
+                            yValue: currentDiff,
+                            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                            content: `Current: ${currentDiff.toFixed(2)}%`,
+                            font: {
+                                size: 10,
+                                weight: 'bold'
+                            },
+                            color: 'white',
+                            padding: 4,
+                            yAdjust: currentDiff >= 0 ? 15 : -15
+                        }
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const value = context.raw;
+                            const sign = value >= 0 ? '+' : '';
+                            return `Differential: ${sign}${value.toFixed(2)}%`;
+                        }
+                    }
                 }
             },
             scales: {
@@ -1403,7 +1487,18 @@ function updateDiffChart(data) {
                 },
                 y: {
                     grid: {
-                        color: 'rgba(0, 0, 0, 0.05)'
+                        color: function(context) {
+                            if (context.tick.value === 0) {
+                                return 'rgba(0, 0, 0, 0.2)';
+                            }
+                            return 'rgba(0, 0, 0, 0.05)';
+                        },
+                        lineWidth: function(context) {
+                            if (context.tick.value === 0) {
+                                return 1.5;
+                            }
+                            return 0.5;
+                        }
                     },
                     ticks: {
                         font: {
@@ -1411,8 +1506,8 @@ function updateDiffChart(data) {
                         },
                         padding: 3,
                         callback: function(value) {
-                            // Format to 1 decimal place
-                            return value.toFixed(1);
+                            // Format to 1 decimal place with sign
+                            return (value > 0 ? '+' : '') + value.toFixed(1);
                         }
                     }
                 }
