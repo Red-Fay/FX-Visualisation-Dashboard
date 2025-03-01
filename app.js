@@ -332,37 +332,56 @@ async function loadRealData() {
         return;
     }
     
-    // Check if we have cached data
-    const cachedHistoricalData = getFromStorage(CONFIG.dataStorageKeys.historicalData);
-    const cachedInterestRates = getFromStorage(CONFIG.dataStorageKeys.interestRates);
-    
-    if (cachedHistoricalData && cachedInterestRates) {
-        // Use cached data
-        console.log('Using cached data from localStorage');
-        try {
-            state.historicalData = JSON.parse(cachedHistoricalData);
-            state.interestRates = JSON.parse(cachedInterestRates);
-            
-            // Set up dates from cached data
-            if (state.historicalData[CONFIG.defaultPair]) {
-                state.allDates = state.historicalData[CONFIG.defaultPair].map(d => d.date);
-                state.currentDateIndex = state.allDates.length - 1;
+    try {
+        // Show loading state
+        showLoading(true);
+        
+        // Check if we have cached data
+        const cachedHistoricalData = getFromStorage(CONFIG.dataStorageKeys.historicalData);
+        const cachedInterestRates = getFromStorage(CONFIG.dataStorageKeys.interestRates);
+        
+        if (cachedHistoricalData && cachedInterestRates) {
+            // Use cached data
+            console.log('Using cached data from localStorage');
+            try {
+                state.historicalData = JSON.parse(cachedHistoricalData);
+                state.interestRates = JSON.parse(cachedInterestRates);
+                
+                // Set up dates from cached data
+                if (state.historicalData[CONFIG.defaultPair]) {
+                    state.allDates = state.historicalData[CONFIG.defaultPair].map(d => d.date);
+                    state.currentDateIndex = state.allDates.length - 1;
+                }
+                
+                // Verify we can calculate rate differentials
+                const [baseCurrency, quoteCurrency] = CONFIG.defaultPair.split('/');
+                const diffHistory = getRateDifferentialHistory(baseCurrency, quoteCurrency);
+                if (!diffHistory || diffHistory.length === 0) {
+                    console.warn("Could not calculate rate differentials from cached data, using sample data for rates");
+                    state.interestRates[baseCurrency] = JSON.parse(JSON.stringify(sampleInterestRates[baseCurrency])) || [];
+                    state.interestRates[quoteCurrency] = JSON.parse(JSON.stringify(sampleInterestRates[quoteCurrency])) || [];
+                }
+                
+                // Update UI with cached data
+                updateUI();
+                
+                // Show last update time in UI
+                updateLastUpdateTime();
+                return;
+            } catch (error) {
+                console.error("Error parsing cached data:", error);
+                // Continue to fetch fresh data
             }
-            
-            // Update UI with cached data
-            updateUI();
-            
-            // Show last update time in UI
-            updateLastUpdateTime();
-            return;
-        } catch (error) {
-            console.error("Error parsing cached data:", error);
-            // Continue to fetch fresh data
         }
+        
+        // If no cached data, fetch fresh data
+        await fetchFreshData();
+    } catch (error) {
+        console.error("Error in loadRealData:", error);
+        loadDemoData();
+    } finally {
+        showLoading(false);
     }
-    
-    // If no cached data, fetch fresh data
-    await fetchFreshData();
 }
 
 // Fetch fresh data from the API
@@ -397,6 +416,14 @@ async function fetchFreshData() {
         
         if (!state.interestRates[quoteCurrency] || !state.interestRates[quoteCurrency].length) {
             console.warn(`No interest rate data for ${quoteCurrency}, using sample data`);
+            state.interestRates[quoteCurrency] = JSON.parse(JSON.stringify(sampleInterestRates[quoteCurrency])) || [];
+        }
+        
+        // Verify we can calculate rate differentials
+        const diffHistory = getRateDifferentialHistory(baseCurrency, quoteCurrency);
+        if (!diffHistory || diffHistory.length === 0) {
+            console.warn("Could not calculate rate differentials, using sample data for both currencies");
+            state.interestRates[baseCurrency] = JSON.parse(JSON.stringify(sampleInterestRates[baseCurrency])) || [];
             state.interestRates[quoteCurrency] = JSON.parse(JSON.stringify(sampleInterestRates[quoteCurrency])) || [];
         }
         
@@ -578,7 +605,7 @@ async function fetchInterestRateData(currency) {
         } else if (currency === 'JPY') {
             // For JPY, we don't have a direct API endpoint, so we'll use sample data
             // This ensures we always have JPY data available
-            console.log(`Using sample data for ${currency} interest rates`);
+            console.log(`Using sample data for ${currency} interest rates (no direct API available)`);
             state.interestRates[currency] = JSON.parse(JSON.stringify(sampleInterestRates[currency])) || [];
             return;
         } else {
@@ -727,31 +754,47 @@ function calculateBollingerBands(data, period = 20, multiplier = 2) {
 
 // Get rate differential history for a currency pair
 function getRateDifferentialHistory(baseCurrency, quoteCurrency) {
-    const baseRates = state.interestRates[baseCurrency] || [];
-    const quoteRates = state.interestRates[quoteCurrency] || [];
-    
     // Debug logging to help diagnose the issue
     console.log(`Getting rate differential for ${baseCurrency}/${quoteCurrency}`);
-    console.log(`Base rates (${baseCurrency}):`, baseRates.length, 'data points');
-    console.log(`Quote rates (${quoteCurrency}):`, quoteRates.length, 'data points');
     
-    // If we don't have data for either currency, fall back to sample data
-    if (baseRates.length === 0 || quoteRates.length === 0) {
-        console.log('Missing rate data, falling back to sample data');
-        const sampleBaseRates = sampleInterestRates[baseCurrency] || [];
-        const sampleQuoteRates = sampleInterestRates[quoteCurrency] || [];
-        
-        // If we still don't have sample data, return empty array
-        if (sampleBaseRates.length === 0 || sampleQuoteRates.length === 0) {
-            console.log('No sample data available either, returning empty array');
-            return [];
+    // Always create deep copies of the rate data to prevent any modifications to the original data
+    let baseRates = [];
+    let quoteRates = [];
+    
+    // Check if we have data for both currencies
+    if (state.interestRates[baseCurrency] && state.interestRates[baseCurrency].length > 0) {
+        baseRates = JSON.parse(JSON.stringify(state.interestRates[baseCurrency]));
+        console.log(`Found ${baseRates.length} ${baseCurrency} rate data points`);
+    } else {
+        console.warn(`No ${baseCurrency} rate data found in state, checking sample data`);
+        if (sampleInterestRates[baseCurrency] && sampleInterestRates[baseCurrency].length > 0) {
+            baseRates = JSON.parse(JSON.stringify(sampleInterestRates[baseCurrency]));
+            console.log(`Using ${baseRates.length} sample ${baseCurrency} rate data points`);
+        } else {
+            console.error(`No ${baseCurrency} rate data available in sample data either`);
         }
-        
-        // Use sample data instead
-        return calculateDifferentialFromRates(sampleBaseRates, sampleQuoteRates);
     }
     
-    // Calculate differential using the actual data
+    if (state.interestRates[quoteCurrency] && state.interestRates[quoteCurrency].length > 0) {
+        quoteRates = JSON.parse(JSON.stringify(state.interestRates[quoteCurrency]));
+        console.log(`Found ${quoteRates.length} ${quoteCurrency} rate data points`);
+    } else {
+        console.warn(`No ${quoteCurrency} rate data found in state, checking sample data`);
+        if (sampleInterestRates[quoteCurrency] && sampleInterestRates[quoteCurrency].length > 0) {
+            quoteRates = JSON.parse(JSON.stringify(sampleInterestRates[quoteCurrency]));
+            console.log(`Using ${quoteRates.length} sample ${quoteCurrency} rate data points`);
+        } else {
+            console.error(`No ${quoteCurrency} rate data available in sample data either`);
+        }
+    }
+    
+    // If we don't have data for either currency, return empty array
+    if (baseRates.length === 0 || quoteRates.length === 0) {
+        console.error('Missing rate data for one or both currencies, cannot calculate differential');
+        return [];
+    }
+    
+    // Calculate differential using the data we have
     return calculateDifferentialFromRates(baseRates, quoteRates);
 }
 
@@ -766,6 +809,10 @@ function calculateDifferentialFromRates(baseRates, quoteRates) {
     // Track last known rates for each currency
     let lastBaseRate = null;
     let lastQuoteRate = null;
+    
+    // Debug the input data
+    console.log(`Calculating differential from ${baseRates.length} base rates and ${quoteRates.length} quote rates`);
+    console.log(`Found ${allDates.length} unique dates`);
     
     allDates.forEach(date => {
         // Update last known rates if we have a new rate for this date
@@ -785,6 +832,38 @@ function calculateDifferentialFromRates(baseRates, quoteRates) {
     });
     
     console.log(`Generated ${result.length} differential data points`);
+    
+    // If we have no results, try a more lenient approach
+    if (result.length === 0 && baseRates.length > 0 && quoteRates.length > 0) {
+        console.log("No differential data points generated with strict matching, trying lenient approach");
+        
+        // Use the most recent rate for each currency
+        const mostRecentBaseRate = baseRates[baseRates.length - 1].rate;
+        const mostRecentQuoteRate = quoteRates[quoteRates.length - 1].rate;
+        const mostRecentDate = new Date();
+        mostRecentDate.setDate(mostRecentDate.getDate() - 1); // Yesterday
+        
+        result.push({
+            date: mostRecentDate.toISOString().split('T')[0],
+            diff: parseFloat((mostRecentBaseRate - mostRecentQuoteRate).toFixed(2))
+        });
+        
+        // Add a few more historical points for context
+        for (let i = 1; i <= 12; i++) {
+            const historicalDate = new Date();
+            historicalDate.setMonth(historicalDate.getMonth() - i);
+            
+            result.push({
+                date: historicalDate.toISOString().split('T')[0],
+                diff: parseFloat((mostRecentBaseRate - mostRecentQuoteRate).toFixed(2))
+            });
+        }
+        
+        // Sort by date
+        result.sort((a, b) => new Date(a.date) - new Date(b.date));
+        console.log(`Generated ${result.length} fallback differential data points`);
+    }
+    
     return result;
 }
 
@@ -1074,11 +1153,15 @@ function updateUI() {
     const currentDate = state.allDates[state.currentDateIndex];
     
     // Update current date display
-    elements.currentDate.textContent = formatDate(currentDate);
+    if (elements.currentDate) {
+        elements.currentDate.textContent = formatDate(currentDate);
+    }
     
     // Update timeline slider
-    elements.timeSlider.max = state.allDates.length - 1;
-    elements.timeSlider.value = state.currentDateIndex;
+    if (elements.timeSlider) {
+        elements.timeSlider.max = state.allDates.length - 1;
+        elements.timeSlider.value = state.currentDateIndex;
+    }
     
     // Get data for all currency pairs on the current date (just USD/JPY now)
     const currencyPairs = CONFIG.currencyPairs
@@ -1086,19 +1169,29 @@ function updateUI() {
         .filter(Boolean);
     
     // Update currency pairs list
-    updateCurrencyPairsList(currencyPairs);
+    if (elements.currencyPairsContainer) {
+        updateCurrencyPairsList(currencyPairs);
+    }
     
     // Update selected pair info
     updateSelectedPairInfo(currentDate);
     
     // Update interest rates panel
-    updateInterestRatesPanel(currentDate);
+    if (elements.interestRatesContainer) {
+        updateInterestRatesPanel(currentDate);
+    }
     
     // Update inflection point alerts
-    updateInflectionPointAlerts(currentDate);
+    if (elements.inflectionAlertsContainer) {
+        updateInflectionPointAlerts(currentDate);
+    }
     
-    // Update charts
-    updateCharts(currentDate);
+    // Update charts - wrap in try/catch to prevent errors from breaking the UI
+    try {
+        updateCharts(currentDate);
+    } catch (error) {
+        console.error("Error updating charts:", error);
+    }
 }
 
 // Update the currency pairs list
@@ -1287,6 +1380,16 @@ function updateCharts(currentDate) {
     // Check if we have data to display
     if (!visibleHistory.length) return;
     
+    // Make sure all chart containers exist before updating
+    if (!document.getElementById('priceChart') || 
+        !document.getElementById('rsiChart') || 
+        !document.getElementById('diffChartContainer')) {
+        console.error("One or more chart elements not found in the DOM");
+        // Wait a moment and try again - the DOM might still be updating
+        setTimeout(() => updateCharts(currentDate), 100);
+        return;
+    }
+    
     // Update price chart
     updatePriceChart(visibleHistory);
     
@@ -1300,13 +1403,13 @@ function updateCharts(currentDate) {
     // Filter the differential history based on the selected timeframe
     const visibleDiffHistory = getVisibleHistory(diffHistory, currentDate, state.timeframe);
     
-    // Always ensure we have a canvas element before updating the chart
-    const diffChartContainer = document.getElementById('diffChart').parentElement;
-    if (!document.getElementById('diffChart')) {
-        diffChartContainer.innerHTML = '<canvas id="diffChart"></canvas>';
+    // Always ensure we have a container for the chart
+    const diffChartContainer = document.getElementById('diffChartContainer');
+    if (diffChartContainer) {
+        updateDiffChart(visibleDiffHistory);
+    } else {
+        console.error("diffChartContainer element not found");
     }
-    
-    updateDiffChart(visibleDiffHistory);
 }
 
 // Update the main price chart
@@ -1587,18 +1690,32 @@ function updateRSIChart(data) {
 
 // Update the rate differential chart with responsive design
 function updateDiffChart(data) {
-    // First, ensure the canvas element exists
-    const container = document.getElementById('diffChart').parentElement;
-    if (!document.getElementById('diffChart')) {
-        container.innerHTML = '<canvas id="diffChart"></canvas>';
+    console.log("Updating differential chart with", data ? data.length : 0, "data points");
+    
+    // First, ensure the diffChart container exists
+    const diffChartContainer = document.getElementById('diffChartContainer');
+    if (!diffChartContainer) {
+        console.error("diffChart container not found");
+        return;
     }
     
-    // Now get the context
-    const ctx = document.getElementById('diffChart').getContext('2d');
+    // Always recreate the canvas to avoid issues with previous chart instances
+    diffChartContainer.innerHTML = '<canvas id="diffChart"></canvas>';
+    
+    // Get the new canvas element
+    const diffChartElement = document.getElementById('diffChart');
+    if (!diffChartElement) {
+        console.error("diffChart element not found after recreation");
+        return;
+    }
     
     // Destroy previous chart if it exists
     if (diffChart) {
-        diffChart.destroy();
+        try {
+            diffChart.destroy();
+        } catch (error) {
+            console.error("Error destroying previous chart:", error);
+        }
     }
     
     // If no data, try to use sample data as fallback
@@ -1609,8 +1726,8 @@ function updateDiffChart(data) {
         const [baseCurrency, quoteCurrency] = state.selectedPair.split('/');
         
         // Calculate differential using sample data
-        const sampleBaseRates = sampleInterestRates[baseCurrency] || [];
-        const sampleQuoteRates = sampleInterestRates[quoteCurrency] || [];
+        const sampleBaseRates = JSON.parse(JSON.stringify(sampleInterestRates[baseCurrency] || []));
+        const sampleQuoteRates = JSON.parse(JSON.stringify(sampleInterestRates[quoteCurrency] || []));
         
         if (sampleBaseRates.length > 0 && sampleQuoteRates.length > 0) {
             console.log('Using sample data for rate differential');
@@ -1619,7 +1736,7 @@ function updateDiffChart(data) {
         
         // If still no data, show a message
         if (!data || data.length === 0) {
-            container.innerHTML = '<div class="flex items-center justify-center h-full text-gray-500">No rate differential data available</div>';
+            diffChartContainer.innerHTML = '<div class="flex items-center justify-center h-full text-gray-500">No rate differential data available</div>';
             return;
         }
     }
@@ -1629,149 +1746,154 @@ function updateDiffChart(data) {
     const visibleData = data.filter(d => d.date <= currentDate);
     
     if (visibleData.length === 0) {
-        container.innerHTML = '<div class="flex items-center justify-center h-full text-gray-500">No rate differential data available for this date</div>';
+        diffChartContainer.innerHTML = '<div class="flex items-center justify-center h-full text-gray-500">No rate differential data available for this date</div>';
         return;
     }
     
-    // Recreate the canvas if it was replaced with a message
-    if (!document.getElementById('diffChart')) {
-        container.innerHTML = '<canvas id="diffChart"></canvas>';
-    }
-    
-    // Get the context again to ensure it's valid
-    const updatedCtx = document.getElementById('diffChart').getContext('2d');
-    
-    // Calculate the current differential value (most recent data point)
-    const currentDiff = visibleData.length > 0 ? parseFloat(visibleData[visibleData.length - 1].diff) : 0;
-    
-    // Create a simple chart without custom plugins
-    diffChart = new Chart(updatedCtx, {
-        type: 'line',
-        data: {
-            labels: visibleData.map(d => d.date),
-            datasets: [
-                {
-                    label: 'Interest Rate Differential (%)',
-                    data: visibleData.map(d => d.diff),
-                    borderColor: 'rgb(59, 130, 246)',
-                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                    borderWidth: 2,
-                    pointRadius: 0,
-                    pointHoverRadius: 3,
-                    fill: true,
-                    tension: 0.1
-                },
-                // Add zero line as a dataset
-                {
-                    label: 'Zero Line',
-                    data: Array(visibleData.length).fill(0),
-                    type: 'line',
-                    borderColor: 'rgba(0, 0, 0, 0.3)',
-                    borderWidth: 1,
-                    borderDash: [4, 4],
-                    pointRadius: 0,
-                    fill: false
-                }
-            ]
-        },
-        options: {
-            ...chartConfig,
-            maintainAspectRatio: false,
-            plugins: {
-                ...chartConfig.plugins,
-                legend: {
-                    display: false // Hide legend to save space
-                },
-                tooltip: {
-                    callbacks: {
-                        title: function(tooltipItems) {
-                            return formatDate(tooltipItems[0].label);
-                        },
-                        label: function(context) {
-                            // Only show differential value for the main dataset
-                            if (context.datasetIndex === 0) {
-                                const value = context.raw;
-                                return `Differential: ${value.toFixed(2)}%`;
-                            }
-                            return null;
-                        }
+    try {
+        const ctx = diffChartElement.getContext('2d');
+        if (!ctx) {
+            console.error("Could not get 2d context from canvas");
+            return;
+        }
+        
+        // Calculate the current differential value (most recent data point)
+        const currentDiff = visibleData.length > 0 ? parseFloat(visibleData[visibleData.length - 1].diff) : 0;
+        
+        // Create a simple chart without custom plugins
+        diffChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: visibleData.map(d => d.date),
+                datasets: [
+                    {
+                        label: 'Interest Rate Differential (%)',
+                        data: visibleData.map(d => d.diff),
+                        borderColor: 'rgb(59, 130, 246)',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        pointHoverRadius: 3,
+                        fill: true,
+                        tension: 0.1
+                    },
+                    // Add zero line as a dataset
+                    {
+                        label: 'Zero Line',
+                        data: Array(visibleData.length).fill(0),
+                        type: 'line',
+                        borderColor: 'rgba(0, 0, 0, 0.3)',
+                        borderWidth: 1,
+                        borderDash: [4, 4],
+                        pointRadius: 0,
+                        fill: false
                     }
-                }
+                ]
             },
-            scales: {
-                x: {
-                    type: 'time',
-                    time: {
-                        unit: visibleData.length > 30 ? 'month' : 'day',
-                        displayFormats: {
-                            day: 'MMM d',
-                            month: 'MMM'
+            options: {
+                ...chartConfig,
+                maintainAspectRatio: false,
+                plugins: {
+                    ...chartConfig.plugins,
+                    legend: {
+                        display: false // Hide legend to save space
+                    },
+                    tooltip: {
+                        callbacks: {
+                            title: function(tooltipItems) {
+                                return formatDate(tooltipItems[0].label);
+                            },
+                            label: function(context) {
+                                // Only show differential value for the main dataset
+                                if (context.datasetIndex === 0) {
+                                    const value = context.raw;
+                                    return `Differential: ${value.toFixed(2)}%`;
+                                }
+                                return null;
+                            }
                         }
-                    },
-                    grid: {
-                        display: false
-                    },
-                    ticks: {
-                        maxRotation: 0,
-                        autoSkip: true,
-                        maxTicksLimit: 5,
-                        font: {
-                            size: 9
-                        },
-                        padding: 5
                     }
                 },
-                y: {
-                    grid: {
-                        color: function(context) {
-                            if (context.tick.value === 0) {
-                                return 'rgba(0, 0, 0, 0.2)';
+                scales: {
+                    x: {
+                        type: 'time',
+                        time: {
+                            unit: visibleData.length > 30 ? 'month' : 'day',
+                            displayFormats: {
+                                day: 'MMM d',
+                                month: 'MMM'
                             }
-                            return 'rgba(0, 0, 0, 0.05)';
+                        },
+                        grid: {
+                            display: false
+                        },
+                        ticks: {
+                            maxRotation: 0,
+                            autoSkip: true,
+                            maxTicksLimit: 5,
+                            font: {
+                                size: 9
+                            },
+                            padding: 5
                         }
                     },
-                    ticks: {
-                        font: {
-                            size: 9
+                    y: {
+                        grid: {
+                            color: function(context) {
+                                if (context.tick.value === 0) {
+                                    return 'rgba(0, 0, 0, 0.2)';
+                                }
+                                return 'rgba(0, 0, 0, 0.05)';
+                            }
                         },
-                        padding: 3,
-                        callback: function(value) {
-                            // Format to 1 decimal place without sign
-                            return value.toFixed(1);
+                        ticks: {
+                            font: {
+                                size: 9
+                            },
+                            padding: 3,
+                            callback: function(value) {
+                                // Format to 1 decimal place without sign
+                                return value.toFixed(1);
+                            }
                         }
                     }
                 }
             }
+        });
+        
+        // Add current value label directly to the canvas
+        if (visibleData.length > 0) {
+            const canvas = document.getElementById('diffChart');
+            if (canvas && canvas.parentElement) {
+                const currentValueLabel = document.createElement('div');
+                currentValueLabel.className = 'chart-label current-value-label';
+                currentValueLabel.textContent = `Current: ${currentDiff.toFixed(2)}%`;
+                currentValueLabel.style.position = 'absolute';
+                currentValueLabel.style.right = '10px';
+                currentValueLabel.style.top = currentDiff >= 0 ? '30%' : '70%';
+                currentValueLabel.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+                currentValueLabel.style.color = 'white';
+                currentValueLabel.style.padding = '2px 6px';
+                currentValueLabel.style.borderRadius = '4px';
+                currentValueLabel.style.fontSize = '10px';
+                currentValueLabel.style.fontWeight = 'bold';
+                currentValueLabel.style.zIndex = '20';
+                
+                // Get the parent container and make it position relative
+                const container = canvas.parentElement;
+                container.style.position = 'relative';
+                
+                // Remove any existing labels
+                const existingLabels = container.querySelectorAll('.chart-label');
+                existingLabels.forEach(label => label.remove());
+                
+                // Add the new label
+                container.appendChild(currentValueLabel);
+            }
         }
-    });
-    
-    // Add current value label directly to the canvas
-    if (visibleData.length > 0) {
-        const canvas = document.getElementById('diffChart');
-        const currentValueLabel = document.createElement('div');
-        currentValueLabel.className = 'chart-label current-value-label';
-        currentValueLabel.textContent = `Current: ${currentDiff.toFixed(2)}%`;
-        currentValueLabel.style.position = 'absolute';
-        currentValueLabel.style.right = '10px';
-        currentValueLabel.style.top = currentDiff >= 0 ? '30%' : '70%';
-        currentValueLabel.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-        currentValueLabel.style.color = 'white';
-        currentValueLabel.style.padding = '2px 6px';
-        currentValueLabel.style.borderRadius = '4px';
-        currentValueLabel.style.fontSize = '10px';
-        currentValueLabel.style.fontWeight = 'bold';
-        currentValueLabel.style.zIndex = '20';
-        
-        // Get the parent container and make it position relative
-        const container = canvas.parentElement;
-        container.style.position = 'relative';
-        
-        // Remove any existing labels
-        const existingLabels = container.querySelectorAll('.chart-label');
-        existingLabels.forEach(label => label.remove());
-        
-        // Add the new label
-        container.appendChild(currentValueLabel);
+    } catch (error) {
+        console.error("Error creating chart:", error);
+        diffChartContainer.innerHTML = '<div class="flex items-center justify-center h-full text-red-500">Error creating chart: ' + error.message + '</div>';
     }
 }
 
