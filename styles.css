@@ -245,8 +245,8 @@ button:active {
 }
 
 .oversold-label {
-    background-color: rgba(59, 130, 246, 0.1);
-    color: #3b82f6;
+    background-color: rgba(16, 185, 129, 0.1);
+    color: #10b981;
 }
 
 .current-value-label {
