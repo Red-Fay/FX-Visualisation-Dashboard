@@ -30,6 +30,14 @@
             </div>
         </div>
         
+        <!-- Loading indicator -->
+        <div id="loadingIndicator" class="fixed top-0 left-0 w-full h-full flex items-center justify-center bg-black bg-opacity-50 z-50 hidden">
+            <div class="bg-white p-6 rounded-lg shadow-lg flex flex-col items-center">
+                <div class="spinner mb-4"></div>
+                <p class="text-lg font-medium">Loading data...</p>
+            </div>
+        </div>
+        
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
             <!-- Currency Pair Selector -->
             <div class="md:col-span-1 bg-white rounded-lg shadow p-4">
@@ -118,7 +126,22 @@
                     Get a free API key from <a href="https://www.alphavantage.co/support/#api-key" target="_blank" class="text-blue-600 hover:text-blue-800">Alpha Vantage</a>
                 </p>
             </div>
-            <div class="bg-blue-50 p-4 rounded-md">
+
+            <!-- Data refresh section -->
+            <div class="flex justify-between items-center mt-4">
+                <div>
+                    <span class="text-sm text-gray-600">Last data update: </span>
+                    <span id="lastUpdateTime" class="text-sm font-medium">Never</span>
+                </div>
+                <button id="refreshData" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Refresh Data
+                </button>
+            </div>
+
+            <div class="bg-blue-50 p-4 rounded-md mt-4">
                 <div class="flex">
                     <div class="flex-shrink-0">
                         <svg class="h-5 w-5 text-blue-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
