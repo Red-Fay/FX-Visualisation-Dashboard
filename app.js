@@ -173,12 +173,22 @@ const chartConfig = {
             position: 'top',
             labels: {
                 boxWidth: 12,
-                padding: 15
+                padding: 8,
+                font: {
+                    size: 11
+                }
             }
         },
         tooltip: {
             mode: 'index',
-            intersect: false
+            intersect: false,
+            padding: 10,
+            bodyFont: {
+                size: 11
+            },
+            titleFont: {
+                size: 11
+            }
         }
     }
 };
@@ -1256,9 +1266,9 @@ function updateRSIChart(data) {
                     backgroundColor: 'rgba(239, 68, 68, 0.1)',
                     fill: true,
                     tension: 0.1,
-                    borderWidth: 2,
+                    borderWidth: 1.5,
                     pointRadius: 0,
-                    pointHoverRadius: 4
+                    pointHoverRadius: 3
                 }
             ]
         },
@@ -1268,10 +1278,22 @@ function updateRSIChart(data) {
                 x: {
                     type: 'time',
                     time: {
-                        unit: data.length > 30 ? 'month' : 'day'
+                        unit: data.length > 30 ? 'month' : 'day',
+                        displayFormats: {
+                            day: 'MMM d',
+                            month: 'MMM'
+                        }
                     },
                     grid: {
                         display: false
+                    },
+                    ticks: {
+                        maxRotation: 0,
+                        autoSkip: true,
+                        maxTicksLimit: 6,
+                        font: {
+                            size: 10
+                        }
                     }
                 },
                 y: {
@@ -1283,12 +1305,11 @@ function updateRSIChart(data) {
                                 return 'rgba(239, 68, 68, 0.2)';
                             }
                             return 'rgba(0, 0, 0, 0.05)';
-                        },
-                        lineWidth: function(context) {
-                            if (context.tick.value === 30 || context.tick.value === 70) {
-                                return 2;
-                            }
-                            return 1;
+                        }
+                    },
+                    ticks: {
+                        font: {
+                            size: 10
                         }
                     }
                 }
@@ -1316,7 +1337,7 @@ function updateDiffChart(data) {
                     backgroundColor: data.map(d => parseFloat(d.diff) >= 0 ? 'rgba(59, 130, 246, 0.5)' : 'rgba(239, 68, 68, 0.5)'),
                     borderColor: data.map(d => parseFloat(d.diff) >= 0 ? 'rgb(59, 130, 246)' : 'rgb(239, 68, 68)'),
                     borderWidth: 1,
-                    borderRadius: 4
+                    borderRadius: 2
                 }
             ]
         },
@@ -1326,15 +1347,31 @@ function updateDiffChart(data) {
                 x: {
                     type: 'time',
                     time: {
-                        unit: 'month'
+                        unit: 'month',
+                        displayFormats: {
+                            month: 'MMM'
+                        }
                     },
                     grid: {
                         display: false
+                    },
+                    ticks: {
+                        maxRotation: 0,
+                        autoSkip: true,
+                        maxTicksLimit: 6,
+                        font: {
+                            size: 10
+                        }
                     }
                 },
                 y: {
                     grid: {
                         color: 'rgba(0, 0, 0, 0.05)'
+                    },
+                    ticks: {
+                        font: {
+                            size: 10
+                        }
                     }
                 }
             }
