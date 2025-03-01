@@ -385,12 +385,19 @@ async function fetchFreshData() {
         }
         
         // Fetch interest rates for USD and JPY
-        if (!state.interestRates[baseCurrency]) {
-            await fetchInterestRateData(baseCurrency);
+        console.log("Fetching interest rate data for both currencies");
+        await fetchInterestRateData(baseCurrency);
+        await fetchInterestRateData(quoteCurrency);
+        
+        // Verify we have interest rate data for both currencies
+        if (!state.interestRates[baseCurrency] || !state.interestRates[baseCurrency].length) {
+            console.warn(`No interest rate data for ${baseCurrency}, using sample data`);
+            state.interestRates[baseCurrency] = sampleInterestRates[baseCurrency] || [];
         }
         
-        if (!state.interestRates[quoteCurrency]) {
-            await fetchInterestRateData(quoteCurrency);
+        if (!state.interestRates[quoteCurrency] || !state.interestRates[quoteCurrency].length) {
+            console.warn(`No interest rate data for ${quoteCurrency}, using sample data`);
+            state.interestRates[quoteCurrency] = sampleInterestRates[quoteCurrency] || [];
         }
         
         // Set up all available dates from the default pair
@@ -562,14 +569,18 @@ async function fetchInterestRateData(currency) {
         // Note: Alpha Vantage doesn't have a direct endpoint for all central bank rates
         // So we'll use treasury yields as a proxy for interest rates
         
-        // For USD, we'll use the Federal Funds Rate
-        // For other currencies, we'll use the 3-month Treasury Yield as a proxy
         let endpoint = '';
         let dataKey = '';
         
         if (currency === 'USD') {
             endpoint = 'FEDERAL_FUNDS_RATE';
             dataKey = 'data';
+        } else if (currency === 'JPY') {
+            // For JPY, we don't have a direct API endpoint, so we'll use sample data
+            // This ensures we always have JPY data available
+            console.log(`Using sample data for ${currency} interest rates`);
+            state.interestRates[currency] = sampleInterestRates[currency] || [];
+            return;
         } else {
             // For other currencies, we could use TREASURY_YIELD but Alpha Vantage
             // doesn't provide this for all countries, so we'll fall back to sample data
@@ -719,6 +730,33 @@ function getRateDifferentialHistory(baseCurrency, quoteCurrency) {
     const baseRates = state.interestRates[baseCurrency] || [];
     const quoteRates = state.interestRates[quoteCurrency] || [];
     
+    // Debug logging to help diagnose the issue
+    console.log(`Getting rate differential for ${baseCurrency}/${quoteCurrency}`);
+    console.log(`Base rates (${baseCurrency}):`, baseRates.length, 'data points');
+    console.log(`Quote rates (${quoteCurrency}):`, quoteRates.length, 'data points');
+    
+    // If we don't have data for either currency, fall back to sample data
+    if (baseRates.length === 0 || quoteRates.length === 0) {
+        console.log('Missing rate data, falling back to sample data');
+        const sampleBaseRates = sampleInterestRates[baseCurrency] || [];
+        const sampleQuoteRates = sampleInterestRates[quoteCurrency] || [];
+        
+        // If we still don't have sample data, return empty array
+        if (sampleBaseRates.length === 0 || sampleQuoteRates.length === 0) {
+            console.log('No sample data available either, returning empty array');
+            return [];
+        }
+        
+        // Use sample data instead
+        return calculateDifferentialFromRates(sampleBaseRates, sampleQuoteRates);
+    }
+    
+    // Calculate differential using the actual data
+    return calculateDifferentialFromRates(baseRates, quoteRates);
+}
+
+// Helper function to calculate differential from two rate arrays
+function calculateDifferentialFromRates(baseRates, quoteRates) {
     // Get all unique dates from both arrays
     const allDates = [...new Set([...baseRates.map(r => r.date), ...quoteRates.map(r => r.date)])].sort();
     
@@ -746,6 +784,7 @@ function getRateDifferentialHistory(baseCurrency, quoteCurrency) {
         }
     });
     
+    console.log(`Generated ${result.length} differential data points`);
     return result;
 }
 
@@ -1548,11 +1587,28 @@ function updateDiffChart(data) {
         diffChart.destroy();
     }
     
-    // If no data, show a message
+    // If no data, try to use sample data as fallback
     if (!data || data.length === 0) {
-        const container = document.getElementById('diffChart').parentElement;
-        container.innerHTML = '<div class="flex items-center justify-center h-full text-gray-500">No rate differential data available</div>';
-        return;
+        console.log('No rate differential data available, trying to use sample data as fallback');
+        
+        // Get the currency pair
+        const [baseCurrency, quoteCurrency] = state.selectedPair.split('/');
+        
+        // Calculate differential using sample data
+        const sampleBaseRates = sampleInterestRates[baseCurrency] || [];
+        const sampleQuoteRates = sampleInterestRates[quoteCurrency] || [];
+        
+        if (sampleBaseRates.length > 0 && sampleQuoteRates.length > 0) {
+            console.log('Using sample data for rate differential');
+            data = calculateDifferentialFromRates(sampleBaseRates, sampleQuoteRates);
+        }
+        
+        // If still no data, show a message
+        if (!data || data.length === 0) {
+            const container = document.getElementById('diffChart').parentElement;
+            container.innerHTML = '<div class="flex items-center justify-center h-full text-gray-500">No rate differential data available</div>';
+            return;
+        }
     }
     
     // Filter data to show only up to the current date
@@ -1569,7 +1625,8 @@ function updateDiffChart(data) {
     const container = document.getElementById('diffChart').parentElement;
     if (!document.getElementById('diffChart')) {
         container.innerHTML = '<canvas id="diffChart"></canvas>';
-        ctx = document.getElementById('diffChart').getContext('2d');
+        const newCtx = document.getElementById('diffChart').getContext('2d');
+        ctx = newCtx; // Update the context reference
     }
     
     // Calculate the current differential value (most recent data point)
