@@ -1,5 +1,8 @@
 // FX Dashboard Application
 
+// Register Chart.js plugins
+Chart.register(ChartAnnotation);
+
 // Configuration
 const CONFIG = {
     // Temporarily limited to only USD/JPY to reduce API calls
@@ -1250,7 +1253,24 @@ function updatePriceChart(data) {
                 y: {
                     beginAtZero: false,
                     grid: {
-                        color: 'rgba(0, 0, 0, 0.05)'
+                        color: function(context) {
+                            if (context.tick && context.tick.value === 0) {
+                                return 'rgba(107, 114, 128, 0.3)'; // Darker line for zero
+                            }
+                            return 'rgba(0, 0, 0, 0.05)';
+                        },
+                        lineWidth: function(context) {
+                            if (context.tick && context.tick.value === 0) {
+                                return 1.5; // Thicker line for zero
+                            }
+                            return 1;
+                        }
+                    },
+                    ticks: {
+                        font: {
+                            size: 9
+                        },
+                        padding: 5
                     }
                 }
             }
@@ -1266,21 +1286,86 @@ function updateRSIChart(data) {
         rsiChart.destroy();
     }
     
+    // Create horizontal line datasets for key RSI levels
+    const horizontalLineData = data.map(() => 50); // Middle line at 50
+    const overboughtLineData = data.map(() => 70); // Overbought threshold at 70
+    const oversoldLineData = data.map(() => 30); // Oversold threshold at 30
+    
     rsiChart = new Chart(ctx, {
         type: 'line',
         data: {
             labels: data.map(d => d.date),
             datasets: [
+                // Background zones for overbought and oversold
+                {
+                    label: 'Overbought Zone',
+                    data: data.map(() => 85), // Midpoint of overbought zone
+                    borderColor: 'transparent',
+                    backgroundColor: 'rgba(239, 68, 68, 0.1)', // Light red
+                    fill: {
+                        target: {value: 70}, // Fill from this line to 70
+                        above: 'rgba(239, 68, 68, 0.1)' // Color above
+                    },
+                    pointRadius: 0,
+                    tension: 0,
+                    borderWidth: 0,
+                    order: 5
+                },
+                {
+                    label: 'Oversold Zone',
+                    data: data.map(() => 15), // Midpoint of oversold zone
+                    borderColor: 'transparent',
+                    backgroundColor: 'rgba(34, 197, 94, 0.1)', // Light green
+                    fill: {
+                        target: {value: 30}, // Fill from this line to 30
+                        below: 'rgba(34, 197, 94, 0.1)' // Color below
+                    },
+                    pointRadius: 0,
+                    tension: 0,
+                    borderWidth: 0,
+                    order: 5
+                },
+                // Reference lines
+                {
+                    label: 'Middle Line',
+                    data: horizontalLineData,
+                    borderColor: 'rgba(107, 114, 128, 0.5)', // Gray
+                    borderWidth: 1,
+                    borderDash: [3, 3],
+                    pointRadius: 0,
+                    fill: false,
+                    order: 4
+                },
+                {
+                    label: 'Overbought',
+                    data: overboughtLineData,
+                    borderColor: 'rgba(239, 68, 68, 0.7)', // Red
+                    borderWidth: 1,
+                    pointRadius: 0,
+                    fill: false,
+                    order: 3
+                },
+                {
+                    label: 'Oversold',
+                    data: oversoldLineData,
+                    borderColor: 'rgba(34, 197, 94, 0.7)', // Green
+                    borderWidth: 1,
+                    pointRadius: 0,
+                    fill: false,
+                    order: 2
+                },
+                // Main RSI line
                 {
                     label: 'RSI',
                     data: data.map(d => d.rsi),
-                    borderColor: '#ef4444',
-                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                    fill: true,
+                    borderColor: '#3b82f6', // Blue (changed from red to stand out from zones)
+                    backgroundColor: 'transparent',
+                    fill: false,
                     tension: 0.1,
-                    borderWidth: 1.5,
+                    borderWidth: 2,
                     pointRadius: 0,
-                    pointHoverRadius: 3
+                    pointHoverRadius: 3,
+                    order: 1 // Draw on top
                 }
             ]
         },
@@ -1291,6 +1376,62 @@ function updateRSIChart(data) {
                 ...chartConfig.plugins,
                 legend: {
                     display: false // Hide legend to save space
+                },
+                tooltip: {
+                    ...chartConfig.plugins.tooltip,
+                    callbacks: {
+                        label: function(context) {
+                            const value = context.raw;
+                            let label = 'RSI: ' + value.toFixed(1);
+                            
+                            // Add interpretation
+                            if (value > 70) {
+                                label += ' (Overbought)';
+                            } else if (value < 30) {
+                                label += ' (Oversold)';
+                            }
+                            
+                            return label;
+                        }
+                    }
+                },
+                annotation: {
+                    annotations: {
+                        overboughtLabel: {
+                            type: 'label',
+                            xValue: data[data.length - 1].date,
+                            yValue: 70,
+                            xAdjust: -60,
+                            backgroundColor: 'rgba(239, 68, 68, 0.7)',
+                            content: ['Overbought'],
+                            font: {
+                                size: 9
+                            },
+                            color: 'white',
+                            padding: {
+                                x: 4,
+                                y: 2
+                            },
+                            borderRadius: 2
+                        },
+                        oversoldLabel: {
+                            type: 'label',
+                            xValue: data[data.length - 1].date,
+                            yValue: 30,
+                            xAdjust: -50,
+                            backgroundColor: 'rgba(34, 197, 94, 0.7)',
+                            content: ['Oversold'],
+                            font: {
+                                size: 9
+                            },
+                            color: 'white',
+                            padding: {
+                                x: 4,
+                                y: 2
+                            },
+                            borderRadius: 2
+                        }
+                    }
                 }
             },
             scales: {
@@ -1321,20 +1462,37 @@ function updateRSIChart(data) {
                     max: 100,
                     grid: {
                         color: function(context) {
-                            if (context.tick.value === 30 || context.tick.value === 70) {
-                                return 'rgba(239, 68, 68, 0.2)';
+                            if (context.tick && context.tick.value === 0 || context.tick.value === 50 || context.tick.value === 100) {
+                                return 'rgba(107, 114, 128, 0.2)'; // Gray for 0, 50, 100
+                            } else if (context.tick && (context.tick.value === 30 || context.tick.value === 70)) {
+                                return 'rgba(239, 68, 68, 0.2)'; // Red for 30, 70
                             }
-                            return 'rgba(0, 0, 0, 0.05)';
+                            return 'rgba(0, 0, 0, 0.05)'; // Default
+                        },
+                        lineWidth: function(context) {
+                            if (context.tick && (context.tick.value === 0 || context.tick.value === 50 || context.tick.value === 100 ||
+                                context.tick.value === 30 || context.tick.value === 70)) {
+                                return 1.5; // Thicker lines for key levels
+                            }
+                            return 1;
                         }
                     },
                     ticks: {
                         font: {
-                            size: 9
+                            size: 9,
+                            weight: function(context) {
+                                if (context.tick && (context.tick.value === 0 || context.tick.value === 50 || 
+                                    context.tick.value === 100 || context.tick.value === 30 || 
+                                    context.tick.value === 70)) {
+                                    return 'bold';
+                                }
+                                return 'normal';
+                            }
                         },
                         padding: 3,
                         callback: function(value) {
-                            // Only show 0, 30, 70, and 100 values
-                            if (value === 0 || value === 30 || value === 70 || value === 100) {
+                            // Show key values with more emphasis
+                            if (value === 0 || value === 30 || value === 50 || value === 70 || value === 100) {
                                 return value;
                             }
                             return '';
@@ -1354,19 +1512,68 @@ function updateDiffChart(data) {
         diffChart.destroy();
     }
     
+    // Create a zero line dataset for reference
+    const zeroLineData = data.map(() => 0);
+    
+    // Calculate trend indicators (arrows) for each data point
+    const trendIndicators = [];
+    for (let i = 1; i < data.length; i++) {
+        const currentDiff = parseFloat(data[i].diff);
+        const prevDiff = parseFloat(data[i-1].diff);
+        
+        if (currentDiff > prevDiff) {
+            trendIndicators.push('↑'); // Widening
+        } else if (currentDiff < prevDiff) {
+            trendIndicators.push('↓'); // Narrowing
+        } else {
+            trendIndicators.push('→'); // Unchanged
+        }
+    }
+    // Add placeholder for first point
+    trendIndicators.unshift('');
+    
+    // Get the latest differential value for the annotation
+    const latestDiff = data.length > 0 ? parseFloat(data[data.length - 1].diff) : 0;
+    const [baseCurrency, quoteCurrency] = state.selectedPair.split('/');
+    const advantageCurrency = latestDiff > 0 ? baseCurrency : quoteCurrency;
+    
     diffChart = new Chart(ctx, {
         type: 'bar',
         data: {
             labels: data.map(d => d.date),
             datasets: [
+                // Zero reference line
+                {
+                    label: 'Zero Line',
+                    data: zeroLineData,
+                    type: 'line',
+                    borderColor: 'rgba(107, 114, 128, 0.5)',
+                    borderWidth: 1,
+                    borderDash: [3, 3],
+                    pointRadius: 0,
+                    fill: false,
+                    order: 2
+                },
+                // Main differential bars
                 {
                     label: 'Interest Rate Differential (%)',
                     data: data.map(d => d.diff),
-                    backgroundColor: data.map(d => parseFloat(d.diff) >= 0 ? 'rgba(59, 130, 246, 0.5)' : 'rgba(239, 68, 68, 0.5)'),
-                    borderColor: data.map(d => parseFloat(d.diff) >= 0 ? 'rgb(59, 130, 246)' : 'rgb(239, 68, 68)'),
+                    backgroundColor: data.map(d => {
+                        const value = parseFloat(d.diff);
+                        // Gradient colors based on value
+                        if (value > 3) return 'rgba(59, 130, 246, 0.8)'; // Strong positive (dark blue)
+                        if (value > 0) return 'rgba(59, 130, 246, 0.5)'; // Positive (blue)
+                        if (value > -3) return 'rgba(239, 68, 68, 0.5)'; // Negative (red)
+                        return 'rgba(239, 68, 68, 0.8)'; // Strong negative (dark red)
+                    }),
+                    borderColor: data.map(d => {
+                        const value = parseFloat(d.diff);
+                        return value >= 0 ? 'rgb(59, 130, 246)' : 'rgb(239, 68, 68)';
+                    }),
                     borderWidth: 1,
                     borderRadius: 4,
-                    barThickness: 8
+                    barThickness: 10,
+                    order: 1
                 }
             ]
         },
@@ -1377,6 +1584,64 @@ function updateDiffChart(data) {
                 ...chartConfig.plugins,
                 legend: {
                     display: false // Hide legend to save space
+                },
+                tooltip: {
+                    ...chartConfig.plugins.tooltip,
+                    callbacks: {
+                        title: function(context) {
+                            // Format the date nicely
+                            const date = new Date(context[0].label);
+                            return date.toLocaleDateString('en-US', { 
+                                year: 'numeric', 
+                                month: 'short'
+                            });
+                        },
+                        label: function(context) {
+                            const value = context.raw;
+                            const index = context.dataIndex;
+                            let label = `Differential: ${value.toFixed(2)}%`;
+                            
+                            // Add trend indicator if available
+                            if (index > 0 && index < trendIndicators.length) {
+                                const trend = trendIndicators[index];
+                                if (trend === '↑') {
+                                    label += ' (Widening)';
+                                } else if (trend === '↓') {
+                                    label += ' (Narrowing)';
+                                }
+                            }
+                            
+                            // Add currency advantage
+                            if (value > 0) {
+                                label += `\n${baseCurrency} yield advantage`;
+                            } else if (value < 0) {
+                                label += `\n${quoteCurrency} yield advantage`;
+                            }
+                            
+                            return label;
+                        }
+                    }
+                },
+                annotation: {
+                    annotations: {
+                        advantageLabel: {
+                            type: 'label',
+                            xValue: data[data.length - 1].date,
+                            yValue: latestDiff,
+                            yAdjust: latestDiff > 0 ? 15 : -15,
+                            backgroundColor: latestDiff >= 0 ? 'rgba(59, 130, 246, 0.7)' : 'rgba(239, 68, 68, 0.7)',
+                            content: [`${advantageCurrency} Advantage`],
+                            font: {
+                                size: 9
+                            },
+                            color: 'white',
+                            padding: {
+                                x: 4,
+                                y: 2
+                            },
+                            borderRadius: 2
+                        }
+                    }
                 }
             },
             scales: {
@@ -1403,16 +1668,35 @@ function updateDiffChart(data) {
                 },
                 y: {
                     grid: {
-                        color: 'rgba(0, 0, 0, 0.05)'
+                        color: function(context) {
+                            if (context.tick && context.tick.value === 0) {
+                                return 'rgba(107, 114, 128, 0.3)'; // Darker line for zero
+                            }
+                            return 'rgba(0, 0, 0, 0.05)';
+                        },
+                        lineWidth: function(context) {
+                            if (context.tick && context.tick.value === 0) {
+                                return 1.5; // Thicker line for zero
+                            }
+                            return 1;
+                        }
                     },
                     ticks: {
                         font: {
-                            size: 9
+                            size: 9,
+                            weight: function(context) {
+                                if (context.tick && (context.tick.value === 0 || context.tick.value === 50 || 
+                                    context.tick.value === 100 || context.tick.value === 30 || 
+                                    context.tick.value === 70)) {
+                                    return 'bold';
+                                }
+                                return 'normal';
+                            }
                         },
                         padding: 3,
                         callback: function(value) {
-                            // Format to 1 decimal place
-                            return value.toFixed(1);
+                            // Format to 1 decimal place and add + sign for positive values
+                            return (value > 0 ? '+' : '') + value.toFixed(1);
                         }
                     }
                 }
