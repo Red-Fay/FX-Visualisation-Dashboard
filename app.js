@@ -156,8 +156,32 @@ const sampleInterestRates = {
     ]
 };
 
-// Initialize charts
+// Initialize charts with responsive options
 let priceChart, rsiChart, diffChart;
+
+// Chart configuration for responsive design
+const chartConfig = {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: {
+        mode: 'nearest',
+        axis: 'x',
+        intersect: false
+    },
+    plugins: {
+        legend: {
+            position: 'top',
+            labels: {
+                boxWidth: 12,
+                padding: 15
+            }
+        },
+        tooltip: {
+            mode: 'index',
+            intersect: false
+        }
+    }
+};
 
 // DOM Elements
 const elements = {
@@ -1140,14 +1164,17 @@ function updatePriceChart(data) {
                     borderColor: '#3b82f6',
                     backgroundColor: 'rgba(59, 130, 246, 0.1)',
                     fill: true,
-                    tension: 0.1
+                    tension: 0.1,
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    pointHoverRadius: 6
                 },
                 {
                     label: '20-day MA',
                     data: data.map(d => d.ma20),
                     borderColor: '#f97316',
                     backgroundColor: 'transparent',
-                    borderWidth: 2,
+                    borderWidth: 1.5,
                     pointRadius: 0,
                     fill: false
                 },
@@ -1156,7 +1183,7 @@ function updatePriceChart(data) {
                     data: data.map(d => d.ma50),
                     borderColor: '#8b5cf6',
                     backgroundColor: 'transparent',
-                    borderWidth: 2,
+                    borderWidth: 1.5,
                     pointRadius: 0,
                     fill: false
                 },
@@ -1183,28 +1210,36 @@ function updatePriceChart(data) {
             ]
         },
         options: {
-            responsive: true,
-            maintainAspectRatio: false,
+            ...chartConfig,
             scales: {
                 x: {
                     type: 'time',
                     time: {
-                        unit: data.length > 30 ? 'month' : 'day'
+                        unit: data.length > 30 ? 'month' : 'day',
+                        displayFormats: {
+                            day: 'MMM d',
+                            month: 'MMM yyyy'
+                        }
+                    },
+                    grid: {
+                        display: false
                     }
                 },
                 y: {
-                    beginAtZero: false
+                    beginAtZero: false,
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.05)'
+                    }
                 }
             }
         }
     });
 }
 
-// Update the RSI chart
+// Update the RSI chart with responsive design
 function updateRSIChart(data) {
     const ctx = document.getElementById('rsiChart').getContext('2d');
     
-    // Destroy previous chart if it exists
     if (rsiChart) {
         rsiChart.destroy();
     }
@@ -1218,19 +1253,25 @@ function updateRSIChart(data) {
                     label: 'RSI',
                     data: data.map(d => d.rsi),
                     borderColor: '#ef4444',
-                    backgroundColor: 'transparent',
-                    fill: false
+                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                    fill: true,
+                    tension: 0.1,
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    pointHoverRadius: 4
                 }
             ]
         },
         options: {
-            responsive: true,
-            maintainAspectRatio: false,
+            ...chartConfig,
             scales: {
                 x: {
                     type: 'time',
                     time: {
                         unit: data.length > 30 ? 'month' : 'day'
+                    },
+                    grid: {
+                        display: false
                     }
                 },
                 y: {
@@ -1239,9 +1280,9 @@ function updateRSIChart(data) {
                     grid: {
                         color: function(context) {
                             if (context.tick.value === 30 || context.tick.value === 70) {
-                                return 'rgba(239, 68, 68, 0.5)';
+                                return 'rgba(239, 68, 68, 0.2)';
                             }
-                            return 'rgba(0, 0, 0, 0.1)';
+                            return 'rgba(0, 0, 0, 0.05)';
                         },
                         lineWidth: function(context) {
                             if (context.tick.value === 30 || context.tick.value === 70) {
@@ -1256,11 +1297,10 @@ function updateRSIChart(data) {
     });
 }
 
-// Update the rate differential chart
+// Update the rate differential chart with responsive design
 function updateDiffChart(data) {
     const ctx = document.getElementById('diffChart').getContext('2d');
     
-    // Destroy previous chart if it exists
     if (diffChart) {
         diffChart.destroy();
     }
@@ -1275,22 +1315,27 @@ function updateDiffChart(data) {
                     data: data.map(d => d.diff),
                     backgroundColor: data.map(d => parseFloat(d.diff) >= 0 ? 'rgba(59, 130, 246, 0.5)' : 'rgba(239, 68, 68, 0.5)'),
                     borderColor: data.map(d => parseFloat(d.diff) >= 0 ? 'rgb(59, 130, 246)' : 'rgb(239, 68, 68)'),
-                    borderWidth: 1
+                    borderWidth: 1,
+                    borderRadius: 4
                 }
             ]
         },
         options: {
-            responsive: true,
-            maintainAspectRatio: false,
+            ...chartConfig,
             scales: {
                 x: {
                     type: 'time',
                     time: {
                         unit: 'month'
+                    },
+                    grid: {
+                        display: false
                     }
                 },
                 y: {
-                    beginAtZero: false
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.05)'
+                    }
                 }
             }
         }
@@ -1317,6 +1362,27 @@ function showLoading(isLoading) {
             loadingIndicator.classList.add('hidden');
         }
     }
+}
+
+// Add resize handler for responsive charts
+window.addEventListener('resize', debounce(() => {
+    if (state.allDates.length > 0) {
+        const currentDate = state.allDates[state.currentDateIndex];
+        updateCharts(currentDate);
+    }
+}, 250));
+
+// Debounce function to limit resize handler calls
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
 }
 
 // Initialize the app when the DOM is loaded
