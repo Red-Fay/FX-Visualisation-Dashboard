@@ -1177,30 +1177,34 @@ function updatePriceChart(data) {
                     label: 'Price',
                     data: data.map(d => d.value),
                     borderColor: '#3b82f6',
-                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                    fill: true,
+                    backgroundColor: 'transparent', // Remove shading under price line
+                    fill: false, // Don't fill under the price line
                     tension: 0.1,
-                    borderWidth: 2,
+                    borderWidth: 2.5, // Make price line slightly thicker for emphasis
                     pointRadius: 0,
-                    pointHoverRadius: 6
+                    pointHoverRadius: 6,
+                    zIndex: 10, // Ensure price is on top
+                    order: 1 // Lower order means it's drawn on top
                 },
                 {
                     label: '20-day MA',
                     data: data.map(d => d.ma20),
-                    borderColor: '#f97316',
+                    borderColor: 'rgba(249, 115, 22, 0.6)', // More transparent orange
                     backgroundColor: 'transparent',
-                    borderWidth: 1.5,
+                    borderWidth: 1, // Thinner line
                     pointRadius: 0,
-                    fill: false
+                    fill: false,
+                    order: 2
                 },
                 {
                     label: '50-day MA',
                     data: data.map(d => d.ma50),
-                    borderColor: '#8b5cf6',
+                    borderColor: 'rgba(139, 92, 246, 0.6)', // More transparent purple
                     backgroundColor: 'transparent',
-                    borderWidth: 1.5,
+                    borderWidth: 1, // Thinner line
                     pointRadius: 0,
-                    fill: false
+                    fill: false,
+                    order: 3
                 },
                 {
                     label: 'Bollinger Upper',
@@ -1210,7 +1214,9 @@ function updatePriceChart(data) {
                     borderWidth: 1,
                     borderDash: [5, 5],
                     pointRadius: 0,
-                    fill: false
+                    fill: '+1', // Fill to the next dataset (Bollinger Lower)
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)', // Light green with transparency
+                    order: 4
                 },
                 {
                     label: 'Bollinger Lower',
@@ -1220,7 +1226,8 @@ function updatePriceChart(data) {
                     borderWidth: 1,
                     borderDash: [5, 5],
                     pointRadius: 0,
-                    fill: false
+                    fill: false,
+                    order: 5
                 }
             ]
         },
@@ -1279,6 +1286,13 @@ function updateRSIChart(data) {
         },
         options: {
             ...chartConfig,
+            maintainAspectRatio: false,
+            plugins: {
+                ...chartConfig.plugins,
+                legend: {
+                    display: false // Hide legend to save space
+                }
+            },
             scales: {
                 x: {
                     type: 'time',
@@ -1295,11 +1309,11 @@ function updateRSIChart(data) {
                     ticks: {
                         maxRotation: 0,
                         autoSkip: true,
-                        maxTicksLimit: 6,
+                        maxTicksLimit: 5,
                         font: {
-                            size: 10
+                            size: 9
                         },
-                        padding: 8
+                        padding: 5
                     }
                 },
                 y: {
@@ -1315,9 +1329,16 @@ function updateRSIChart(data) {
                     },
                     ticks: {
                         font: {
-                            size: 10
+                            size: 9
                         },
-                        padding: 5
+                        padding: 3,
+                        callback: function(value) {
+                            // Only show 0, 30, 70, and 100 values
+                            if (value === 0 || value === 30 || value === 70 || value === 100) {
+                                return value;
+                            }
+                            return '';
+                        }
                     }
                 }
             }
@@ -1344,13 +1365,20 @@ function updateDiffChart(data) {
                     backgroundColor: data.map(d => parseFloat(d.diff) >= 0 ? 'rgba(59, 130, 246, 0.5)' : 'rgba(239, 68, 68, 0.5)'),
                     borderColor: data.map(d => parseFloat(d.diff) >= 0 ? 'rgb(59, 130, 246)' : 'rgb(239, 68, 68)'),
                     borderWidth: 1,
-                    borderRadius: 2,
-                    barThickness: 6
+                    borderRadius: 4,
+                    barThickness: 8
                 }
             ]
         },
         options: {
             ...chartConfig,
+            maintainAspectRatio: false,
+            plugins: {
+                ...chartConfig.plugins,
+                legend: {
+                    display: false // Hide legend to save space
+                }
+            },
             scales: {
                 x: {
                     type: 'time',
@@ -1366,11 +1394,11 @@ function updateDiffChart(data) {
                     ticks: {
                         maxRotation: 0,
                         autoSkip: true,
-                        maxTicksLimit: 6,
+                        maxTicksLimit: 5,
                         font: {
-                            size: 10
+                            size: 9
                         },
-                        padding: 8
+                        padding: 5
                     }
                 },
                 y: {
@@ -1379,9 +1407,13 @@ function updateDiffChart(data) {
                     },
                     ticks: {
                         font: {
-                            size: 10
+                            size: 9
                         },
-                        padding: 5
+                        padding: 3,
+                        callback: function(value) {
+                            // Format to 1 decimal place
+                            return value.toFixed(1);
+                        }
                     }
                 }
             }
