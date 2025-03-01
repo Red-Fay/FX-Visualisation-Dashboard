@@ -1305,7 +1305,7 @@ function updateRSIChart(data) {
                 {
                     label: 'Oversold (30)',
                     data: Array(data.length).fill(30),
-                    borderColor: 'rgba(59, 130, 246, 0.5)',
+                    borderColor: 'rgba(16, 185, 129, 0.5)',
                     borderWidth: 1.5,
                     pointRadius: 0,
                     borderDash: [],
@@ -1365,7 +1365,7 @@ function updateRSIChart(data) {
                     grid: {
                         color: function(context) {
                             if (context.tick.value === 30) {
-                                return 'rgba(59, 130, 246, 0.5)'; // Blue for oversold
+                                return 'rgba(16, 185, 129, 0.5)'; // Green for oversold
                             } else if (context.tick.value === 50) {
                                 return 'rgba(0, 0, 0, 0.2)'; // Darker for centerline
                             } else if (context.tick.value === 70) {
@@ -1400,7 +1400,7 @@ function updateRSIChart(data) {
     overboughtLabel.className = 'chart-label overbought-label';
     overboughtLabel.textContent = 'Overbought';
     overboughtLabel.style.position = 'absolute';
-    overboughtLabel.style.right = '10px';
+    overboughtLabel.style.left = '10px';
     overboughtLabel.style.top = '25%';
     overboughtLabel.style.backgroundColor = 'rgba(239, 68, 68, 0.1)';
     overboughtLabel.style.color = '#ef4444';
@@ -1412,10 +1412,10 @@ function updateRSIChart(data) {
     oversoldLabel.className = 'chart-label oversold-label';
     oversoldLabel.textContent = 'Oversold';
     oversoldLabel.style.position = 'absolute';
-    oversoldLabel.style.right = '10px';
+    oversoldLabel.style.left = '10px';
     oversoldLabel.style.bottom = '25%';
-    oversoldLabel.style.backgroundColor = 'rgba(59, 130, 246, 0.1)';
-    oversoldLabel.style.color = '#3b82f6';
+    oversoldLabel.style.backgroundColor = 'rgba(16, 185, 129, 0.1)';
+    oversoldLabel.style.color = '#10b981';
     oversoldLabel.style.padding = '2px 6px';
     oversoldLabel.style.borderRadius = '4px';
     oversoldLabel.style.fontSize = '10px';
@@ -1446,18 +1446,20 @@ function updateDiffChart(data) {
     
     // Create a simple chart without custom plugins
     diffChart = new Chart(ctx, {
-        type: 'bar',
+        type: 'line',
         data: {
             labels: data.map(d => d.date),
             datasets: [
                 {
                     label: 'Interest Rate Differential (%)',
                     data: data.map(d => d.diff),
-                    backgroundColor: data.map(d => parseFloat(d.diff) >= 0 ? 'rgba(59, 130, 246, 0.5)' : 'rgba(239, 68, 68, 0.5)'),
-                    borderColor: data.map(d => parseFloat(d.diff) >= 0 ? 'rgb(59, 130, 246)' : 'rgb(239, 68, 68)'),
-                    borderWidth: 1,
-                    borderRadius: 4,
-                    barThickness: 8
+                    borderColor: 'rgb(59, 130, 246)',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    pointHoverRadius: 3,
+                    fill: true,
+                    tension: 0.1
                 },
                 // Add zero line as a dataset
                 {
@@ -1489,8 +1491,7 @@ function updateDiffChart(data) {
                             // Only show differential value for the main dataset
                             if (context.datasetIndex === 0) {
                                 const value = context.raw;
-                                const sign = value >= 0 ? '+' : '';
-                                return `Differential: ${sign}${value.toFixed(2)}%`;
+                                return `Differential: ${value.toFixed(2)}%`;
                             }
                             return null;
                         }
@@ -1534,8 +1535,8 @@ function updateDiffChart(data) {
                         },
                         padding: 3,
                         callback: function(value) {
-                            // Format to 1 decimal place with sign
-                            return (value > 0 ? '+' : '') + value.toFixed(1);
+                            // Format to 1 decimal place without sign
+                            return value.toFixed(1);
                         }
                     }
                 }
@@ -1548,7 +1549,7 @@ function updateDiffChart(data) {
         const canvas = document.getElementById('diffChart');
         const currentValueLabel = document.createElement('div');
         currentValueLabel.className = 'chart-label current-value-label';
-        currentValueLabel.textContent = `Current: ${currentDiff >= 0 ? '+' : ''}${currentDiff.toFixed(2)}%`;
+        currentValueLabel.textContent = `Current: ${currentDiff.toFixed(2)}%`;
         currentValueLabel.style.position = 'absolute';
         currentValueLabel.style.right = '10px';
         currentValueLabel.style.top = currentDiff >= 0 ? '30%' : '70%';
