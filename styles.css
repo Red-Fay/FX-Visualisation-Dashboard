@@ -218,13 +218,19 @@ button:active {
 }
 
 .indicator-container {
-    height: 200px;
+    height: 220px;
     position: relative;
-    padding: 0.5rem;
+    padding: 1rem;
 }
 
 .indicator-container h3 {
-    margin-bottom: 0.5rem;
+    margin-bottom: 1rem;
     font-size: 0.875rem;
+    font-weight: 500;
     color: #4b5563;
+}
+
+.indicator-container canvas {
+    margin-top: 0.5rem;
+    height: calc(100% - 2.5rem) !important;
 }
