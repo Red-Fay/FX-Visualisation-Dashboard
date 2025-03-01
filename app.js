@@ -151,11 +151,31 @@ function initApp() {
         elements.apiKeyInput.value = state.apiKey;
     }
     
-    // Load initial data
-    if (CONFIG.demoMode || !state.apiKey) {
-        loadDemoData();
+    // Check for cached data first, regardless of demo mode
+    const cachedHistoricalData = localStorage.getItem(CONFIG.dataStorageKeys.historicalData);
+    const cachedInterestRates = localStorage.getItem(CONFIG.dataStorageKeys.interestRates);
+    
+    if (cachedHistoricalData && cachedInterestRates) {
+        // Use cached data if available
+        console.log('Using cached data from localStorage');
+        state.historicalData = JSON.parse(cachedHistoricalData);
+        state.interestRates = JSON.parse(cachedInterestRates);
+        
+        // Set up dates from cached data
+        if (state.historicalData[CONFIG.defaultPair]) {
+            state.allDates = state.historicalData[CONFIG.defaultPair].map(d => d.date);
+            state.currentDateIndex = state.allDates.length - 1;
+        }
+        
+        // Update UI with cached data
+        updateUI();
     } else {
-        loadRealData();
+        // No cached data, so load based on mode and API key
+        if (CONFIG.demoMode || !state.apiKey) {
+            loadDemoData();
+        } else {
+            loadRealData();
+        }
     }
     
     // Update last update time display
