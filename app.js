@@ -173,12 +173,23 @@ const chartConfig = {
             position: 'top',
             labels: {
                 boxWidth: 12,
-                padding: 15
+                padding: 15,
+                font: {
+                    size: 11
+                }
             }
         },
         tooltip: {
             mode: 'index',
             intersect: false
+        }
+    },
+    layout: {
+        padding: {
+            left: 10,
+            right: 10,
+            top: 5,
+            bottom: 5
         }
     }
 };
@@ -197,7 +208,10 @@ const elements = {
     apiKeyInput: document.getElementById('apiKey'),
     saveApiKeyBtn: document.getElementById('saveApiKey'),
     refreshDataBtn: document.getElementById('refreshData'),
-    lastUpdateTime: document.getElementById('lastUpdateTime')
+    lastUpdateTime: document.getElementById('lastUpdateTime'),
+    themeToggle: document.getElementById('themeToggle'),
+    moonIcon: document.getElementById('moon-icon'),
+    sunIcon: document.getElementById('sun-icon')
 };
 
 // Initialize the application
@@ -1268,10 +1282,22 @@ function updateRSIChart(data) {
                 x: {
                     type: 'time',
                     time: {
-                        unit: data.length > 30 ? 'month' : 'day'
+                        unit: data.length > 30 ? 'month' : 'day',
+                        displayFormats: {
+                            day: 'MMM d',
+                            month: 'MMM'
+                        }
                     },
                     grid: {
                         display: false
+                    },
+                    ticks: {
+                        maxRotation: 0,
+                        autoSkip: true,
+                        maxTicksLimit: 6,
+                        font: {
+                            size: 10
+                        }
                     }
                 },
                 y: {
@@ -1289,6 +1315,11 @@ function updateRSIChart(data) {
                                 return 2;
                             }
                             return 1;
+                        }
+                    },
+                    ticks: {
+                        font: {
+                            size: 10
                         }
                     }
                 }
@@ -1326,15 +1357,31 @@ function updateDiffChart(data) {
                 x: {
                     type: 'time',
                     time: {
-                        unit: 'month'
+                        unit: 'month',
+                        displayFormats: {
+                            month: 'MMM'
+                        }
                     },
                     grid: {
                         display: false
+                    },
+                    ticks: {
+                        maxRotation: 0,
+                        autoSkip: true,
+                        maxTicksLimit: 6,
+                        font: {
+                            size: 10
+                        }
                     }
                 },
                 y: {
                     grid: {
                         color: 'rgba(0, 0, 0, 0.05)'
+                    },
+                    ticks: {
+                        font: {
+                            size: 10
+                        }
                     }
                 }
             }
@@ -1386,4 +1433,91 @@ function debounce(func, wait) {
 }
 
 // Initialize the app when the DOM is loaded
-document.addEventListener('DOMContentLoaded', initApp);
+document.addEventListener('DOMContentLoaded', () => {
+    initApp();
+    initTheme();
+});
+
+// Update timeframe button states
+function updateTimeframeButtons(selectedTimeframe) {
+    elements.timeframeButtons.forEach(button => {
+        if (button.dataset.timeframe === selectedTimeframe) {
+            button.classList.remove('bg-gray-200', 'text-gray-700', 'hover:bg-gray-300');
+            button.classList.add('bg-blue-500', 'text-white');
+        } else {
+            button.classList.remove('bg-blue-500', 'text-white');
+            button.classList.add('bg-gray-200', 'text-gray-700', 'hover:bg-gray-300');
+        }
+    });
+}
+
+// Add event listeners for timeframe buttons
+elements.timeframeButtons.forEach(button => {
+    button.addEventListener('click', () => {
+        const timeframe = button.dataset.timeframe;
+        updateTimeframeButtons(timeframe);
+        // Add your timeframe change logic here
+        // This should already exist in your code
+    });
+});
+
+// Initialize theme
+function initTheme() {
+    const savedTheme = localStorage.getItem('theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    updateThemeIcons(savedTheme);
+    updateChartsTheme(savedTheme);
+}
+
+// Toggle theme
+function toggleTheme() {
+    const currentTheme = document.documentElement.getAttribute('data-theme');
+    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+    
+    document.documentElement.setAttribute('data-theme', newTheme);
+    localStorage.setItem('theme', newTheme);
+    
+    updateThemeIcons(newTheme);
+    updateChartsTheme(newTheme);
+}
+
+// Update theme icons
+function updateThemeIcons(theme) {
+    if (theme === 'dark') {
+        elements.moonIcon.classList.add('hidden');
+        elements.sunIcon.classList.remove('hidden');
+    } else {
+        elements.moonIcon.classList.remove('hidden');
+        elements.sunIcon.classList.add('hidden');
+    }
+}
+
+// Update charts theme
+function updateChartsTheme(theme) {
+    const isDark = theme === 'dark';
+    const textColor = isDark ? '#e5e7eb' : '#374151';
+    const gridColor = isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)';
+    
+    // Update chartConfig
+    chartConfig.plugins.legend.labels.color = textColor;
+    chartConfig.scales = chartConfig.scales || {};
+    chartConfig.scales.x = chartConfig.scales.x || {};
+    chartConfig.scales.y = chartConfig.scales.y || {};
+    chartConfig.scales.x.ticks = chartConfig.scales.x.ticks || {};
+    chartConfig.scales.y.ticks = chartConfig.scales.y.ticks || {};
+    chartConfig.scales.x.ticks.color = textColor;
+    chartConfig.scales.y.ticks.color = textColor;
+    chartConfig.scales.x.grid = chartConfig.scales.x.grid || {};
+    chartConfig.scales.y.grid = chartConfig.scales.y.grid || {};
+    chartConfig.scales.x.grid.color = gridColor;
+    chartConfig.scales.y.grid.color = gridColor;
+    
+    // Update existing charts if they exist
+    if (state.allDates && state.allDates.length > 0) {
+        const currentDate = state.allDates[state.currentDateIndex];
+        updateCharts(currentDate);
+    }
+}
+
+// Add theme toggle event listener
+elements.themeToggle.addEventListener('click', toggleTheme);
