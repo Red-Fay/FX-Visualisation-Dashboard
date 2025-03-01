@@ -190,6 +190,11 @@ const chartConfig = {
                 size: 11
             }
         }
+    },
+    layout: {
+        padding: {
+            bottom: 15
+        }
     }
 };
 
@@ -1293,7 +1298,8 @@ function updateRSIChart(data) {
                         maxTicksLimit: 6,
                         font: {
                             size: 10
-                        }
+                        },
+                        padding: 8
                     }
                 },
                 y: {
@@ -1310,7 +1316,8 @@ function updateRSIChart(data) {
                     ticks: {
                         font: {
                             size: 10
-                        }
+                        },
+                        padding: 5
                     }
                 }
             }
@@ -1337,7 +1344,8 @@ function updateDiffChart(data) {
                     backgroundColor: data.map(d => parseFloat(d.diff) >= 0 ? 'rgba(59, 130, 246, 0.5)' : 'rgba(239, 68, 68, 0.5)'),
                     borderColor: data.map(d => parseFloat(d.diff) >= 0 ? 'rgb(59, 130, 246)' : 'rgb(239, 68, 68)'),
                     borderWidth: 1,
-                    borderRadius: 2
+                    borderRadius: 2,
+                    barThickness: 6
                 }
             ]
         },
@@ -1361,7 +1369,8 @@ function updateDiffChart(data) {
                         maxTicksLimit: 6,
                         font: {
                             size: 10
-                        }
+                        },
+                        padding: 8
                     }
                 },
                 y: {
@@ -1371,7 +1380,8 @@ function updateDiffChart(data) {
                     ticks: {
                         font: {
                             size: 10
-                        }
+                        },
+                        padding: 5
                     }
                 }
             }
