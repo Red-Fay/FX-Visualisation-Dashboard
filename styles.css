@@ -232,5 +232,6 @@ button:active {
 
 .indicator-container canvas {
     margin-top: 0.5rem;
-    height: calc(100% - 2.5rem) !important;
+    height: calc(100% - 4rem) !important; /* Increased bottom margin */
+    padding-bottom: 1rem; /* Added padding at the bottom */
 }
