@@ -1266,8 +1266,8 @@ function updateRSIChart(data) {
         rsiChart.destroy();
     }
     
-    // Create chart configuration
-    const config = {
+    // Create a simple chart without custom plugins
+    rsiChart = new Chart(ctx, {
         type: 'line',
         data: {
             labels: data.map(d => d.date),
@@ -1282,6 +1282,34 @@ function updateRSIChart(data) {
                     borderWidth: 1.5,
                     pointRadius: 0,
                     pointHoverRadius: 3
+                },
+                // Add horizontal lines as datasets
+                {
+                    label: 'Overbought (70)',
+                    data: Array(data.length).fill(70),
+                    borderColor: 'rgba(239, 68, 68, 0.5)',
+                    borderWidth: 1.5,
+                    pointRadius: 0,
+                    borderDash: [],
+                    fill: false
+                },
+                {
+                    label: 'Centerline (50)',
+                    data: Array(data.length).fill(50),
+                    borderColor: 'rgba(0, 0, 0, 0.2)',
+                    borderWidth: 1.5,
+                    pointRadius: 0,
+                    borderDash: [4, 4],
+                    fill: false
+                },
+                {
+                    label: 'Oversold (30)',
+                    data: Array(data.length).fill(30),
+                    borderColor: 'rgba(59, 130, 246, 0.5)',
+                    borderWidth: 1.5,
+                    pointRadius: 0,
+                    borderDash: [],
+                    fill: false
                 }
             ]
         },
@@ -1292,6 +1320,20 @@ function updateRSIChart(data) {
                 ...chartConfig.plugins,
                 legend: {
                     display: false // Hide legend to save space
+                },
+                tooltip: {
+                    callbacks: {
+                        title: function(tooltipItems) {
+                            return formatDate(tooltipItems[0].label);
+                        },
+                        label: function(context) {
+                            // Only show RSI value for the main dataset
+                            if (context.datasetIndex === 0) {
+                                return `RSI: ${context.raw.toFixed(1)}`;
+                            }
+                            return null;
+                        }
+                    }
                 }
             },
             scales: {
@@ -1332,14 +1374,6 @@ function updateRSIChart(data) {
                                 return 'rgba(0, 0, 0, 0.3)'; // Darker for extremes
                             }
                             return 'rgba(0, 0, 0, 0.05)';
-                        },
-                        lineWidth: function(context) {
-                            if (context.tick.value === 0 || context.tick.value === 30 || 
-                                context.tick.value === 50 || context.tick.value === 70 || 
-                                context.tick.value === 100) {
-                                return 1.5; // Thicker lines for key levels
-                            }
-                            return 0.5;
                         }
                     },
                     ticks: {
@@ -1357,77 +1391,46 @@ function updateRSIChart(data) {
                     }
                 }
             }
-        },
-        plugins: [] // We'll add the annotation plugin manually
-    };
-    
-    // Create the chart
-    rsiChart = new Chart(ctx, config);
-    
-    // Add text labels for overbought/oversold after chart is created
-    // This avoids using the annotation plugin which might be causing issues
-    const chartArea = rsiChart.chartArea;
-    const meta = rsiChart.getDatasetMeta(0);
-    
-    // Draw horizontal lines for key levels
-    const drawHorizontalLine = (ctx, y, color, width = 1, dash = []) => {
-        if (!chartArea) return;
-        
-        ctx.save();
-        ctx.beginPath();
-        ctx.setLineDash(dash);
-        ctx.strokeStyle = color;
-        ctx.lineWidth = width;
-        ctx.moveTo(chartArea.left, y);
-        ctx.lineTo(chartArea.right, y);
-        ctx.stroke();
-        ctx.restore();
-    };
-    
-    // Add a plugin to draw the lines and labels
-    const horizontalLinesPlugin = {
-        id: 'horizontalLines',
-        afterDraw: (chart) => {
-            const {ctx, chartArea, scales} = chart;
-            
-            if (!chartArea) return;
-            
-            // Draw lines at key levels
-            drawHorizontalLine(ctx, scales.y.getPixelForValue(70), 'rgba(239, 68, 68, 0.5)', 1.5);
-            drawHorizontalLine(ctx, scales.y.getPixelForValue(50), 'rgba(0, 0, 0, 0.2)', 1.5, [4, 4]);
-            drawHorizontalLine(ctx, scales.y.getPixelForValue(30), 'rgba(59, 130, 246, 0.5)', 1.5);
-            
-            // Add text labels
-            ctx.save();
-            
-            // Overbought label
-            ctx.fillStyle = 'rgba(239, 68, 68, 0.1)';
-            const overboughtY = scales.y.getPixelForValue(75);
-            const textWidth = ctx.measureText('Overbought').width + 8;
-            ctx.fillRect(chartArea.right - textWidth - 5, overboughtY - 10, textWidth, 20);
-            ctx.fillStyle = '#ef4444';
-            ctx.font = '10px sans-serif';
-            ctx.textAlign = 'right';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('Overbought', chartArea.right - 9, overboughtY);
-            
-            // Oversold label
-            ctx.fillStyle = 'rgba(59, 130, 246, 0.1)';
-            const oversoldY = scales.y.getPixelForValue(25);
-            ctx.fillRect(chartArea.right - textWidth - 5, oversoldY - 10, textWidth, 20);
-            ctx.fillStyle = '#3b82f6';
-            ctx.font = '10px sans-serif';
-            ctx.textAlign = 'right';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('Oversold', chartArea.right - 9, oversoldY);
-            
-            ctx.restore();
         }
-    };
+    });
     
-    // Register the plugin for this chart instance
-    Chart.register(horizontalLinesPlugin);
-    rsiChart.update();
+    // Add text labels directly to the canvas after chart is rendered
+    const canvas = document.getElementById('rsiChart');
+    const overboughtLabel = document.createElement('div');
+    overboughtLabel.className = 'chart-label overbought-label';
+    overboughtLabel.textContent = 'Overbought';
+    overboughtLabel.style.position = 'absolute';
+    overboughtLabel.style.right = '10px';
+    overboughtLabel.style.top = '25%';
+    overboughtLabel.style.backgroundColor = 'rgba(239, 68, 68, 0.1)';
+    overboughtLabel.style.color = '#ef4444';
+    overboughtLabel.style.padding = '2px 6px';
+    overboughtLabel.style.borderRadius = '4px';
+    overboughtLabel.style.fontSize = '10px';
+    
+    const oversoldLabel = document.createElement('div');
+    oversoldLabel.className = 'chart-label oversold-label';
+    oversoldLabel.textContent = 'Oversold';
+    oversoldLabel.style.position = 'absolute';
+    oversoldLabel.style.right = '10px';
+    oversoldLabel.style.bottom = '25%';
+    oversoldLabel.style.backgroundColor = 'rgba(59, 130, 246, 0.1)';
+    oversoldLabel.style.color = '#3b82f6';
+    oversoldLabel.style.padding = '2px 6px';
+    oversoldLabel.style.borderRadius = '4px';
+    oversoldLabel.style.fontSize = '10px';
+    
+    // Get the parent container and make it position relative
+    const container = canvas.parentElement;
+    container.style.position = 'relative';
+    
+    // Remove any existing labels
+    const existingLabels = container.querySelectorAll('.chart-label');
+    existingLabels.forEach(label => label.remove());
+    
+    // Add the new labels
+    container.appendChild(overboughtLabel);
+    container.appendChild(oversoldLabel);
 }
 
 // Update the rate differential chart with responsive design
@@ -1441,8 +1444,8 @@ function updateDiffChart(data) {
     // Calculate the current differential value (most recent data point)
     const currentDiff = data.length > 0 ? parseFloat(data[data.length - 1].diff) : 0;
     
-    // Create a more streamlined visualization
-    const config = {
+    // Create a simple chart without custom plugins
+    diffChart = new Chart(ctx, {
         type: 'bar',
         data: {
             labels: data.map(d => d.date),
@@ -1455,6 +1458,17 @@ function updateDiffChart(data) {
                     borderWidth: 1,
                     borderRadius: 4,
                     barThickness: 8
+                },
+                // Add zero line as a dataset
+                {
+                    label: 'Zero Line',
+                    data: Array(data.length).fill(0),
+                    type: 'line',
+                    borderColor: 'rgba(0, 0, 0, 0.3)',
+                    borderWidth: 1,
+                    borderDash: [4, 4],
+                    pointRadius: 0,
+                    fill: false
                 }
             ]
         },
@@ -1468,10 +1482,17 @@ function updateDiffChart(data) {
                 },
                 tooltip: {
                     callbacks: {
+                        title: function(tooltipItems) {
+                            return formatDate(tooltipItems[0].label);
+                        },
                         label: function(context) {
-                            const value = context.raw;
-                            const sign = value >= 0 ? '+' : '';
-                            return `Differential: ${sign}${value.toFixed(2)}%`;
+                            // Only show differential value for the main dataset
+                            if (context.datasetIndex === 0) {
+                                const value = context.raw;
+                                const sign = value >= 0 ? '+' : '';
+                                return `Differential: ${sign}${value.toFixed(2)}%`;
+                            }
+                            return null;
                         }
                     }
                 }
@@ -1505,12 +1526,6 @@ function updateDiffChart(data) {
                                 return 'rgba(0, 0, 0, 0.2)';
                             }
                             return 'rgba(0, 0, 0, 0.05)';
-                        },
-                        lineWidth: function(context) {
-                            if (context.tick.value === 0) {
-                                return 1.5;
-                            }
-                            return 0.5;
                         }
                     },
                     ticks: {
@@ -1525,63 +1540,36 @@ function updateDiffChart(data) {
                     }
                 }
             }
-        },
-        plugins: [] // We'll add custom plugins manually
-    };
-    
-    // Create the chart
-    diffChart = new Chart(ctx, config);
-    
-    // Add a plugin to draw the zero line and current value label
-    const diffChartPlugin = {
-        id: 'diffChartCustomizations',
-        afterDraw: (chart) => {
-            const {ctx, chartArea, scales} = chart;
-            
-            if (!chartArea) return;
-            
-            // Draw zero line
-            ctx.save();
-            ctx.beginPath();
-            ctx.setLineDash([4, 4]);
-            ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
-            ctx.lineWidth = 1;
-            const zeroY = scales.y.getPixelForValue(0);
-            ctx.moveTo(chartArea.left, zeroY);
-            ctx.lineTo(chartArea.right, zeroY);
-            ctx.stroke();
-            ctx.restore();
-            
-            // Add current value label if we have data
-            if (data.length > 0) {
-                ctx.save();
-                
-                // Current value label
-                const lastX = scales.x.getPixelForValue(data[data.length - 1].date);
-                const lastY = scales.y.getPixelForValue(currentDiff);
-                const yAdjust = currentDiff >= 0 ? -25 : 25; // Position above or below the bar
-                
-                // Draw background
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-                const labelText = `Current: ${currentDiff.toFixed(2)}%`;
-                const textWidth = ctx.measureText(labelText).width + 8;
-                ctx.fillRect(lastX - textWidth/2, lastY + yAdjust - 10, textWidth, 20);
-                
-                // Draw text
-                ctx.fillStyle = 'white';
-                ctx.font = 'bold 10px sans-serif';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(labelText, lastX, lastY + yAdjust);
-                
-                ctx.restore();
-            }
         }
-    };
+    });
     
-    // Register the plugin for this chart instance
-    Chart.register(diffChartPlugin);
-    diffChart.update();
+    // Add current value label directly to the canvas
+    if (data.length > 0) {
+        const canvas = document.getElementById('diffChart');
+        const currentValueLabel = document.createElement('div');
+        currentValueLabel.className = 'chart-label current-value-label';
+        currentValueLabel.textContent = `Current: ${currentDiff >= 0 ? '+' : ''}${currentDiff.toFixed(2)}%`;
+        currentValueLabel.style.position = 'absolute';
+        currentValueLabel.style.right = '10px';
+        currentValueLabel.style.top = currentDiff >= 0 ? '30%' : '70%';
+        currentValueLabel.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+        currentValueLabel.style.color = 'white';
+        currentValueLabel.style.padding = '2px 6px';
+        currentValueLabel.style.borderRadius = '4px';
+        currentValueLabel.style.fontSize = '10px';
+        currentValueLabel.style.fontWeight = 'bold';
+        
+        // Get the parent container and make it position relative
+        const container = canvas.parentElement;
+        container.style.position = 'relative';
+        
+        // Remove any existing labels
+        const existingLabels = container.querySelectorAll('.chart-label');
+        existingLabels.forEach(label => label.remove());
+        
+        // Add the new label
+        container.appendChild(currentValueLabel);
+    }
 }
 
 // Format date for display
