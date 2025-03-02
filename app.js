@@ -1252,14 +1252,58 @@ function updateSelectedPairInfo(currentDate) {
     elements.pairChange.textContent = `${changeSign}${pairData.change.toFixed(4)} (${pairData.changePercent.toFixed(2)}%)`;
 }
 
-// Update interest rates panel
+// Check if the interest rate data for a currency is from sample data
+function isUsingSampleData(currency) {
+    // If we're in demo mode, we're definitely using sample data
+    if (CONFIG.demoMode) return true;
+    
+    // If there's no API key, we're using sample data
+    if (!state.apiKey) return true;
+    
+    // If there's no data for this currency, we can't determine
+    if (!state.interestRates[currency] || state.interestRates[currency].length === 0) return true;
+    
+    // Check if the dates in the data match exactly with the sample data dates
+    // This is a reliable way to determine if we're using sample data
+    const currencyData = state.interestRates[currency];
+    const sampleData = sampleInterestRates[currency];
+    
+    // If there's no sample data for this currency, we're not using sample data
+    if (!sampleData || sampleData.length === 0) return false;
+    
+    // If the lengths are different, it's likely not sample data
+    if (currencyData.length !== sampleData.length) return false;
+    
+    // Check if the dates match
+    const sampleDates = sampleData.map(item => item.date).sort();
+    const currencyDates = currencyData.map(item => item.date).sort();
+    
+    // If all dates match, it's sample data
+    return JSON.stringify(sampleDates) === JSON.stringify(currencyDates);
+}
+
+// Update the interest rates panel with current data
 function updateInterestRatesPanel(currentDate) {
     const [baseCurrency, quoteCurrency] = state.selectedPair.split('/');
-    const baseRateData = getInterestRateForDate(baseCurrency, currentDate);
-    const quoteRateData = getInterestRateForDate(quoteCurrency, currentDate);
+    
+    // Clear previous content
+    elements.interestRatesContainer.innerHTML = '';
+    
+    // Get data for the selected pair
     const pairData = getPairDataForDate(state.selectedPair, currentDate);
     
-    elements.interestRatesContainer.innerHTML = '';
+    // Get interest rate data for both currencies
+    const baseRateData = getInterestRateForDate(baseCurrency, currentDate);
+    const quoteRateData = getInterestRateForDate(quoteCurrency, currentDate);
+    
+    // Check if we're using sample data
+    const baseUsingSample = isUsingSampleData(baseCurrency);
+    const quoteUsingSample = isUsingSampleData(quoteCurrency);
+    
+    // Create a tag for demo data
+    const createDemoTag = () => {
+        return '<span class="ml-2 px-2 py-0.5 text-xs font-medium rounded bg-amber-100 text-amber-800">Demo Data</span>';
+    };
     
     if (baseRateData) {
         const changeClass = baseRateData.change > 0 ? 'text-green-500' : baseRateData.change < 0 ? 'text-red-500' : 'text-gray-500';
@@ -1267,7 +1311,7 @@ function updateInterestRatesPanel(currentDate) {
         const html = `
             <div class="border-b pb-2">
                 <div class="flex justify-between">
-                    <span class="text-sm text-gray-500">${baseRateData.country}</span>
+                    <span class="text-sm text-gray-500">${baseRateData.country} ${baseUsingSample ? createDemoTag() : ''}</span>
                     <span class="text-sm font-medium ${changeClass}">
                         ${baseRateData.change > 0 ? '+' : ''}${baseRateData.change}%
                     </span>
@@ -1286,7 +1330,7 @@ function updateInterestRatesPanel(currentDate) {
         const html = `
             <div class="border-b pb-2">
                 <div class="flex justify-between">
-                    <span class="text-sm text-gray-500">${quoteRateData.country}</span>
+                    <span class="text-sm text-gray-500">${quoteRateData.country} ${quoteUsingSample ? createDemoTag() : ''}</span>
                     <span class="text-sm font-medium ${changeClass}">
                         ${quoteRateData.change > 0 ? '+' : ''}${quoteRateData.change}%
                     </span>
@@ -1301,10 +1345,14 @@ function updateInterestRatesPanel(currentDate) {
     
     if (baseRateData && quoteRateData && pairData) {
         const diffClass = pairData.interestDiff > 0 ? 'text-green-500' : 'text-red-500';
+        const bothUsingSample = baseUsingSample && quoteUsingSample;
         
         const html = `
             <div>
-                <div class="text-sm text-gray-500">Interest Rate Differential</div>
+                <div class="flex items-center">
+                    <span class="text-sm text-gray-500">Interest Rate Differential</span>
+                    ${bothUsingSample ? createDemoTag() : ''}
+                </div>
                 <div class="text-xl font-bold ${diffClass}">
                     ${pairData.interestDiff > 0 ? '+' : ''}${pairData.interestDiff}%
                 </div>
@@ -1416,6 +1464,9 @@ function updateCharts(currentDate) {
 function updatePriceChart(data) {
     const ctx = document.getElementById('priceChart').getContext('2d');
     
+    // Check if we're using sample data
+    const isUsingDemoData = CONFIG.demoMode || !state.apiKey;
+    
     // Destroy previous chart if it exists
     if (priceChart) {
         priceChart.destroy();
@@ -1429,34 +1480,37 @@ function updatePriceChart(data) {
                 {
                     label: 'Price',
                     data: data.map(d => d.value),
-                    borderColor: '#3b82f6',
-                    backgroundColor: 'transparent', // Remove shading under price line
-                    fill: false, // Don't fill under the price line
-                    tension: 0.1,
-                    borderWidth: 2.5, // Make price line slightly thicker for emphasis
+                    borderColor: 'rgb(59, 130, 246)',
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
                     pointRadius: 0,
-                    pointHoverRadius: 6,
-                    zIndex: 10, // Ensure price is on top
-                    order: 1 // Lower order means it's drawn on top
+                    pointHoverRadius: 5,
+                    pointHoverBackgroundColor: 'rgb(59, 130, 246)',
+                    pointHoverBorderColor: 'white',
+                    pointHoverBorderWidth: 2,
+                    tension: 0.1,
+                    order: 1
                 },
                 {
                     label: '20-day MA',
                     data: data.map(d => d.ma20),
-                    borderColor: 'rgba(249, 115, 22, 0.6)', // More transparent orange
+                    borderColor: '#f59e0b',
                     backgroundColor: 'transparent',
-                    borderWidth: 1, // Thinner line
+                    borderWidth: 1.5,
                     pointRadius: 0,
-                    fill: false,
+                    pointHoverRadius: 0,
+                    tension: 0.1,
                     order: 2
                 },
                 {
                     label: '50-day MA',
                     data: data.map(d => d.ma50),
-                    borderColor: 'rgba(139, 92, 246, 0.6)', // More transparent purple
+                    borderColor: '#ef4444',
                     backgroundColor: 'transparent',
-                    borderWidth: 1, // Thinner line
+                    borderWidth: 1.5,
                     pointRadius: 0,
-                    fill: false,
+                    pointHoverRadius: 0,
+                    tension: 0.1,
                     order: 3
                 },
                 {
@@ -1509,17 +1563,61 @@ function updatePriceChart(data) {
             }
         }
     });
+    
+    // Add demo data indicator if using sample data
+    if (isUsingDemoData) {
+        const canvas = document.getElementById('priceChart');
+        if (canvas && canvas.parentElement) {
+            // Make the parent container position relative
+            const container = canvas.parentElement;
+            container.style.position = 'relative';
+            
+            // Remove any existing labels
+            const existingLabels = container.querySelectorAll('.chart-label');
+            existingLabels.forEach(label => label.remove());
+            
+            // Add demo data label
+            const demoDataLabel = document.createElement('div');
+            demoDataLabel.className = 'chart-label demo-data-label';
+            demoDataLabel.textContent = 'Demo Data';
+            demoDataLabel.style.position = 'absolute';
+            demoDataLabel.style.left = '10px';
+            demoDataLabel.style.top = '10px';
+            demoDataLabel.style.backgroundColor = 'rgba(245, 158, 11, 0.7)'; // amber color
+            demoDataLabel.style.color = 'white';
+            demoDataLabel.style.padding = '2px 6px';
+            demoDataLabel.style.borderRadius = '4px';
+            demoDataLabel.style.fontSize = '10px';
+            demoDataLabel.style.fontWeight = 'bold';
+            demoDataLabel.style.zIndex = '20';
+            container.appendChild(demoDataLabel);
+        }
+    }
 }
 
 // Update the RSI chart with responsive design
 function updateRSIChart(data) {
     const ctx = document.getElementById('rsiChart').getContext('2d');
     
+    // Check if we're using sample data
+    const isUsingDemoData = CONFIG.demoMode || !state.apiKey;
+    
+    // Destroy previous chart if it exists
     if (rsiChart) {
         rsiChart.destroy();
     }
     
-    // Create a simple chart without custom plugins
+    // Extract RSI values
+    const rsiValues = data.map(d => d.rsi);
+    
+    // Create gradient for RSI
+    const gradient = ctx.createLinearGradient(0, 0, 0, 150);
+    gradient.addColorStop(0, 'rgba(239, 68, 68, 0.6)');   // Red for overbought
+    gradient.addColorStop(0.3, 'rgba(239, 68, 68, 0.1)'); // Fade out
+    gradient.addColorStop(0.5, 'rgba(209, 213, 219, 0.1)'); // Gray for middle
+    gradient.addColorStop(0.7, 'rgba(16, 185, 129, 0.1)'); // Fade in
+    gradient.addColorStop(1, 'rgba(16, 185, 129, 0.6)');   // Green for oversold
+    
     rsiChart = new Chart(ctx, {
         type: 'line',
         data: {
@@ -1527,68 +1625,19 @@ function updateRSIChart(data) {
             datasets: [
                 {
                     label: 'RSI',
-                    data: data.map(d => d.rsi),
-                    borderColor: '#ef4444',
-                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                    data: rsiValues,
+                    borderColor: 'rgb(239, 68, 68)',
+                    backgroundColor: gradient,
+                    borderWidth: 1.5,
+                    pointRadius: 0,
+                    pointHoverRadius: 3,
                     fill: true,
-                    tension: 0.1,
-                    borderWidth: 1.5,
-                    pointRadius: 0,
-                    pointHoverRadius: 3
-                },
-                // Add horizontal lines as datasets
-                {
-                    label: 'Overbought (70)',
-                    data: Array(data.length).fill(70),
-                    borderColor: 'rgba(239, 68, 68, 0.5)',
-                    borderWidth: 1.5,
-                    pointRadius: 0,
-                    borderDash: [],
-                    fill: false
-                },
-                {
-                    label: 'Centerline (50)',
-                    data: Array(data.length).fill(50),
-                    borderColor: 'rgba(0, 0, 0, 0.2)',
-                    borderWidth: 1.5,
-                    pointRadius: 0,
-                    borderDash: [4, 4],
-                    fill: false
-                },
-                {
-                    label: 'Oversold (30)',
-                    data: Array(data.length).fill(30),
-                    borderColor: 'rgba(16, 185, 129, 0.5)',
-                    borderWidth: 1.5,
-                    pointRadius: 0,
-                    borderDash: [],
-                    fill: false
+                    tension: 0.1
                 }
             ]
         },
         options: {
             ...chartConfig,
-            maintainAspectRatio: false,
-            plugins: {
-                ...chartConfig.plugins,
-                legend: {
-                    display: false // Hide legend to save space
-                },
-                tooltip: {
-                    callbacks: {
-                        title: function(tooltipItems) {
-                            return formatDate(tooltipItems[0].label);
-                        },
-                        label: function(context) {
-                            // Only show RSI value for the main dataset
-                            if (context.datasetIndex === 0) {
-                                return `RSI: ${context.raw.toFixed(1)}`;
-                            }
-                            return null;
-                        }
-                    }
-                }
-            },
             scales: {
                 x: {
                     type: 'time',
@@ -1617,14 +1666,8 @@ function updateRSIChart(data) {
                     max: 100,
                     grid: {
                         color: function(context) {
-                            if (context.tick.value === 30) {
-                                return 'rgba(16, 185, 129, 0.5)'; // Green for oversold
-                            } else if (context.tick.value === 50) {
-                                return 'rgba(0, 0, 0, 0.2)'; // Darker for centerline
-                            } else if (context.tick.value === 70) {
-                                return 'rgba(239, 68, 68, 0.5)'; // Red for overbought
-                            } else if (context.tick.value === 0 || context.tick.value === 100) {
-                                return 'rgba(0, 0, 0, 0.3)'; // Darker for extremes
+                            if (context.tick.value === 30 || context.tick.value === 70) {
+                                return 'rgba(0, 0, 0, 0.2)';
                             }
                             return 'rgba(0, 0, 0, 0.05)';
                         }
@@ -1633,13 +1676,49 @@ function updateRSIChart(data) {
                         font: {
                             size: 9
                         },
-                        padding: 3,
-                        callback: function(value) {
-                            // Show 0, 30, 50, 70, and 100 values
-                            if (value === 0 || value === 30 || value === 50 || value === 70 || value === 100) {
-                                return value;
+                        padding: 3
+                    }
+                }
+            },
+            plugins: {
+                ...chartConfig.plugins,
+                annotation: {
+                    annotations: {
+                        overboughtLine: {
+                            type: 'line',
+                            yMin: 70,
+                            yMax: 70,
+                            borderColor: 'rgba(239, 68, 68, 0.5)',
+                            borderWidth: 1,
+                            borderDash: [2, 2],
+                            label: {
+                                enabled: true,
+                                content: 'Overbought',
+                                position: 'start',
+                                backgroundColor: 'rgba(239, 68, 68, 0.7)',
+                                font: {
+                                    size: 10
+                                },
+                                padding: 4
                             }
-                            return '';
+                        },
+                        oversoldLine: {
+                            type: 'line',
+                            yMin: 30,
+                            yMax: 30,
+                            borderColor: 'rgba(16, 185, 129, 0.5)',
+                            borderWidth: 1,
+                            borderDash: [2, 2],
+                            label: {
+                                enabled: true,
+                                content: 'Oversold',
+                                position: 'start',
+                                backgroundColor: 'rgba(16, 185, 129, 0.7)',
+                                font: {
+                                    size: 10
+                                },
+                                padding: 4
+                            }
                         }
                     }
                 }
@@ -1647,45 +1726,35 @@ function updateRSIChart(data) {
         }
     });
     
-    // Add text labels directly to the canvas after chart is rendered
-    const canvas = document.getElementById('rsiChart');
-    const overboughtLabel = document.createElement('div');
-    overboughtLabel.className = 'chart-label overbought-label';
-    overboughtLabel.textContent = 'Overbought';
-    overboughtLabel.style.position = 'absolute';
-    overboughtLabel.style.left = '10px';
-    overboughtLabel.style.top = '15%';
-    overboughtLabel.style.backgroundColor = 'rgba(239, 68, 68, 0.1)';
-    overboughtLabel.style.color = '#ef4444';
-    overboughtLabel.style.padding = '2px 6px';
-    overboughtLabel.style.borderRadius = '4px';
-    overboughtLabel.style.fontSize = '10px';
-    overboughtLabel.style.zIndex = '20';
-    
-    const oversoldLabel = document.createElement('div');
-    oversoldLabel.className = 'chart-label oversold-label';
-    oversoldLabel.textContent = 'Oversold';
-    oversoldLabel.style.position = 'absolute';
-    oversoldLabel.style.left = '10px';
-    oversoldLabel.style.bottom = '15%';
-    oversoldLabel.style.backgroundColor = 'rgba(16, 185, 129, 0.1)';
-    oversoldLabel.style.color = '#10b981';
-    oversoldLabel.style.padding = '2px 6px';
-    oversoldLabel.style.borderRadius = '4px';
-    oversoldLabel.style.fontSize = '10px';
-    oversoldLabel.style.zIndex = '20';
-    
-    // Get the parent container and make it position relative
-    const container = canvas.parentElement;
-    container.style.position = 'relative';
-    
-    // Remove any existing labels
-    const existingLabels = container.querySelectorAll('.chart-label');
-    existingLabels.forEach(label => label.remove());
-    
-    // Add the new labels
-    container.appendChild(overboughtLabel);
-    container.appendChild(oversoldLabel);
+    // Add demo data indicator if using sample data
+    if (isUsingDemoData) {
+        const canvas = document.getElementById('rsiChart');
+        if (canvas && canvas.parentElement) {
+            // Make the parent container position relative
+            const container = canvas.parentElement;
+            container.style.position = 'relative';
+            
+            // Remove any existing labels
+            const existingLabels = container.querySelectorAll('.chart-label');
+            existingLabels.forEach(label => label.remove());
+            
+            // Add demo data label
+            const demoDataLabel = document.createElement('div');
+            demoDataLabel.className = 'chart-label demo-data-label';
+            demoDataLabel.textContent = 'Demo Data';
+            demoDataLabel.style.position = 'absolute';
+            demoDataLabel.style.left = '10px';
+            demoDataLabel.style.top = '10px';
+            demoDataLabel.style.backgroundColor = 'rgba(245, 158, 11, 0.7)'; // amber color
+            demoDataLabel.style.color = 'white';
+            demoDataLabel.style.padding = '2px 6px';
+            demoDataLabel.style.borderRadius = '4px';
+            demoDataLabel.style.fontSize = '10px';
+            demoDataLabel.style.fontWeight = 'bold';
+            demoDataLabel.style.zIndex = '20';
+            container.appendChild(demoDataLabel);
+        }
+    }
 }
 
 // Update the rate differential chart with responsive design
@@ -1698,6 +1767,9 @@ function updateDiffChart(data) {
         console.error("diffChart container not found");
         return;
     }
+    
+    // Track if we're using sample data
+    let usingSampleData = false;
     
     // Always recreate the canvas to avoid issues with previous chart instances
     diffChartContainer.innerHTML = '<canvas id="diffChart"></canvas>';
@@ -1732,6 +1804,7 @@ function updateDiffChart(data) {
         if (sampleBaseRates.length > 0 && sampleQuoteRates.length > 0) {
             console.log('Using sample data for rate differential');
             data = calculateDifferentialFromRates(sampleBaseRates, sampleQuoteRates);
+            usingSampleData = true;
         }
         
         // If still no data, show a message
@@ -1739,6 +1812,10 @@ function updateDiffChart(data) {
             diffChartContainer.innerHTML = '<div class="flex items-center justify-center h-full text-gray-500">No rate differential data available</div>';
             return;
         }
+    } else {
+        // Check if we're using sample data for either currency
+        const [baseCurrency, quoteCurrency] = state.selectedPair.split('/');
+        usingSampleData = isUsingSampleData(baseCurrency) || isUsingSampleData(quoteCurrency);
     }
     
     // Filter data to show only up to the current date
@@ -1889,6 +1966,24 @@ function updateDiffChart(data) {
                 
                 // Add the new label
                 container.appendChild(currentValueLabel);
+                
+                // Add demo data indicator if using sample data
+                if (usingSampleData) {
+                    const demoDataLabel = document.createElement('div');
+                    demoDataLabel.className = 'chart-label demo-data-label';
+                    demoDataLabel.textContent = 'Demo Data';
+                    demoDataLabel.style.position = 'absolute';
+                    demoDataLabel.style.left = '10px';
+                    demoDataLabel.style.top = '10px';
+                    demoDataLabel.style.backgroundColor = 'rgba(245, 158, 11, 0.7)'; // amber color
+                    demoDataLabel.style.color = 'white';
+                    demoDataLabel.style.padding = '2px 6px';
+                    demoDataLabel.style.borderRadius = '4px';
+                    demoDataLabel.style.fontSize = '10px';
+                    demoDataLabel.style.fontWeight = 'bold';
+                    demoDataLabel.style.zIndex = '20';
+                    container.appendChild(demoDataLabel);
+                }
             }
         }
     } catch (error) {
