@@ -1299,8 +1299,8 @@ function isUsingSampleData(currency) {
 // Create a consistent demo data tag with better styling
 function createDemoDataTag(position = 'inline') {
     if (position === 'inline') {
-        // For inline tags (in the interest rates panel)
-        return '<span class="ml-2 px-2 py-0.5 text-xs font-medium rounded bg-amber-500 text-white">Demo Data</span>';
+        // For inline tags (in the interest rates panel) - match the chart style
+        return '<span class="ml-2 px-2 py-0.5 text-xs font-medium rounded bg-amber-500 text-white" style="opacity: 0.9;">Demo Data</span>';
     } else if (position === 'chart') {
         // For chart overlay tags
         const tag = document.createElement('div');
@@ -1340,13 +1340,21 @@ function updateInterestRatesPanel(currentDate) {
     
     console.log(`Interest rates using sample data: ${baseCurrency}: ${baseUsingSample}, ${quoteCurrency}: ${quoteUsingSample}`);
     
+    // Create a container with a relative position for the interest rates panel
+    elements.interestRatesContainer.style.position = 'relative';
+    
     if (baseRateData) {
         const changeClass = baseRateData.change > 0 ? 'text-green-500' : baseRateData.change < 0 ? 'text-red-500' : 'text-gray-500';
+        
+        // Add a data source indicator (Real Data or Demo Data)
+        const dataSourceIndicator = baseUsingSample ? 
+            `<div class="flex items-center"><span class="text-sm text-gray-500">${baseRateData.country}</span> ${createDemoDataTag('inline')}</div>` : 
+            `<div class="flex items-center"><span class="text-sm text-gray-500">${baseRateData.country}</span> <span class="ml-2 px-2 py-0.5 text-xs font-medium rounded bg-green-500 text-white" style="opacity: 0.9;">Real Data</span></div>`;
         
         const html = `
             <div class="border-b pb-2">
                 <div class="flex justify-between">
-                    <span class="text-sm text-gray-500">${baseRateData.country} ${baseUsingSample ? createDemoDataTag('inline') : ''}</span>
+                    ${dataSourceIndicator}
                     <span class="text-sm font-medium ${changeClass}">
                         ${baseRateData.change > 0 ? '+' : ''}${baseRateData.change}%
                     </span>
@@ -1362,10 +1370,15 @@ function updateInterestRatesPanel(currentDate) {
     if (quoteRateData) {
         const changeClass = quoteRateData.change > 0 ? 'text-green-500' : quoteRateData.change < 0 ? 'text-red-500' : 'text-gray-500';
         
+        // Add a data source indicator (Real Data or Demo Data)
+        const dataSourceIndicator = quoteUsingSample ? 
+            `<div class="flex items-center"><span class="text-sm text-gray-500">${quoteRateData.country}</span> ${createDemoDataTag('inline')}</div>` : 
+            `<div class="flex items-center"><span class="text-sm text-gray-500">${quoteRateData.country}</span> <span class="ml-2 px-2 py-0.5 text-xs font-medium rounded bg-green-500 text-white" style="opacity: 0.9;">Real Data</span></div>`;
+        
         const html = `
             <div class="border-b pb-2">
                 <div class="flex justify-between">
-                    <span class="text-sm text-gray-500">${quoteRateData.country} ${quoteUsingSample ? createDemoDataTag('inline') : ''}</span>
+                    ${dataSourceIndicator}
                     <span class="text-sm font-medium ${changeClass}">
                         ${quoteRateData.change > 0 ? '+' : ''}${quoteRateData.change}%
                     </span>
@@ -1383,12 +1396,14 @@ function updateInterestRatesPanel(currentDate) {
         // For the differential, we're using sample data if either currency uses sample data
         const eitherUsingSample = baseUsingSample || quoteUsingSample;
         
+        // Add a data source indicator for the differential
+        const dataSourceIndicator = eitherUsingSample ? 
+            `<div class="flex items-center"><span class="text-sm text-gray-500">Interest Rate Differential</span> ${createDemoDataTag('inline')}</div>` : 
+            `<div class="flex items-center"><span class="text-sm text-gray-500">Interest Rate Differential</span> <span class="ml-2 px-2 py-0.5 text-xs font-medium rounded bg-green-500 text-white" style="opacity: 0.9;">Real Data</span></div>`;
+        
         const html = `
             <div>
-                <div class="flex items-center">
-                    <span class="text-sm text-gray-500">Interest Rate Differential</span>
-                    ${eitherUsingSample ? createDemoDataTag('inline') : ''}
-                </div>
+                ${dataSourceIndicator}
                 <div class="text-xl font-bold ${diffClass}">
                     ${pairData.interestDiff > 0 ? '+' : ''}${pairData.interestDiff}%
                 </div>
