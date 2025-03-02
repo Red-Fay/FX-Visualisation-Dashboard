@@ -583,6 +583,13 @@ async function fetchCurrencyPairData(fromCurrency, toCurrency) {
 async function fetchInterestRateData(currency) {
     console.log(`Fetching interest rate data for ${currency}`);
     
+    // JPY always uses sample data regardless of API key or mode
+    if (currency === 'JPY') {
+        console.log(`Using sample data for JPY interest rates (no direct API available)`);
+        state.interestRates[currency] = JSON.parse(JSON.stringify(sampleInterestRates[currency])) || [];
+        return;
+    }
+    
     // Check if we're in demo mode
     if (CONFIG.demoMode) {
         console.log(`Using sample interest rate data for ${currency} (demo mode)`);
@@ -602,12 +609,6 @@ async function fetchInterestRateData(currency) {
         if (currency === 'USD') {
             endpoint = 'FEDERAL_FUNDS_RATE';
             dataKey = 'data';
-        } else if (currency === 'JPY') {
-            // For JPY, we don't have a direct API endpoint, so we'll use sample data
-            // This ensures we always have JPY data available
-            console.log(`Using sample data for ${currency} interest rates (no direct API available)`);
-            state.interestRates[currency] = JSON.parse(JSON.stringify(sampleInterestRates[currency])) || [];
-            return;
         } else {
             // For other currencies, we could use TREASURY_YIELD but Alpha Vantage
             // doesn't provide this for all countries, so we'll fall back to sample data
@@ -1254,6 +1255,9 @@ function updateSelectedPairInfo(currentDate) {
 
 // Check if the interest rate data for a currency is from sample data
 function isUsingSampleData(currency) {
+    // JPY always uses sample data since we don't have a direct API for it
+    if (currency === 'JPY') return true;
+    
     // If we're in demo mode, we're definitely using sample data
     if (CONFIG.demoMode) return true;
     
@@ -1290,7 +1294,7 @@ function createDemoDataTag(position = 'inline') {
     } else if (position === 'chart') {
         // For chart overlay tags
         const tag = document.createElement('div');
-        tag.className = 'chart-label demo-data-label';
+        tag.className = 'demo-data-label';
         tag.textContent = 'Demo Data';
         tag.style.position = 'absolute';
         tag.style.left = '10px';
@@ -1320,9 +1324,11 @@ function updateInterestRatesPanel(currentDate) {
     const baseRateData = getInterestRateForDate(baseCurrency, currentDate);
     const quoteRateData = getInterestRateForDate(quoteCurrency, currentDate);
     
-    // Check if we're using sample data
+    // Check if we're using sample data for each currency
     const baseUsingSample = isUsingSampleData(baseCurrency);
     const quoteUsingSample = isUsingSampleData(quoteCurrency);
+    
+    console.log(`Interest rates using sample data: ${baseCurrency}: ${baseUsingSample}, ${quoteCurrency}: ${quoteUsingSample}`);
     
     if (baseRateData) {
         const changeClass = baseRateData.change > 0 ? 'text-green-500' : baseRateData.change < 0 ? 'text-red-500' : 'text-gray-500';
@@ -1364,13 +1370,14 @@ function updateInterestRatesPanel(currentDate) {
     
     if (baseRateData && quoteRateData && pairData) {
         const diffClass = pairData.interestDiff > 0 ? 'text-green-500' : 'text-red-500';
-        const bothUsingSample = baseUsingSample && quoteUsingSample;
+        // For the differential, we're using sample data if either currency uses sample data
+        const eitherUsingSample = baseUsingSample || quoteUsingSample;
         
         const html = `
             <div>
                 <div class="flex items-center">
                     <span class="text-sm text-gray-500">Interest Rate Differential</span>
-                    ${bothUsingSample ? createDemoDataTag('inline') : ''}
+                    ${eitherUsingSample ? createDemoDataTag('inline') : ''}
                 </div>
                 <div class="text-xl font-bold ${diffClass}">
                     ${pairData.interestDiff > 0 ? '+' : ''}${pairData.interestDiff}%
@@ -1483,8 +1490,11 @@ function updateCharts(currentDate) {
 function updatePriceChart(data) {
     const ctx = document.getElementById('priceChart').getContext('2d');
     
-    // Check if we're using sample data
+    // Check if we're using sample data - this should be based on the actual data source
+    // For price data, we need to check if we're in demo mode or have no API key
     const isUsingDemoData = CONFIG.demoMode || !state.apiKey;
+    
+    console.log(`Price chart using demo data: ${isUsingDemoData}`);
     
     // Destroy previous chart if it exists
     if (priceChart) {
@@ -1592,11 +1602,19 @@ function updatePriceChart(data) {
             container.style.position = 'relative';
             
             // Remove any existing labels
-            const existingLabels = container.querySelectorAll('.chart-label');
+            const existingLabels = container.querySelectorAll('.demo-data-label');
             existingLabels.forEach(label => label.remove());
             
             // Add demo data label
             container.appendChild(createDemoDataTag('chart'));
+        }
+    } else {
+        // If not using demo data, remove any existing demo data labels
+        const canvas = document.getElementById('priceChart');
+        if (canvas && canvas.parentElement) {
+            const container = canvas.parentElement;
+            const existingLabels = container.querySelectorAll('.demo-data-label');
+            existingLabels.forEach(label => label.remove());
         }
     }
 }
@@ -1605,8 +1623,11 @@ function updatePriceChart(data) {
 function updateRSIChart(data) {
     const ctx = document.getElementById('rsiChart').getContext('2d');
     
-    // Check if we're using sample data
+    // Check if we're using sample data - this should be based on the actual data source
+    // For RSI data, we need to check if we're in demo mode or have no API key
     const isUsingDemoData = CONFIG.demoMode || !state.apiKey;
+    
+    console.log(`RSI chart using demo data: ${isUsingDemoData}`);
     
     // Destroy previous chart if it exists
     if (rsiChart) {
@@ -1741,11 +1762,19 @@ function updateRSIChart(data) {
             container.style.position = 'relative';
             
             // Remove any existing labels
-            const existingLabels = container.querySelectorAll('.chart-label');
+            const existingLabels = container.querySelectorAll('.demo-data-label');
             existingLabels.forEach(label => label.remove());
             
             // Add demo data label
             container.appendChild(createDemoDataTag('chart'));
+        }
+    } else {
+        // If not using demo data, remove any existing demo data labels
+        const canvas = document.getElementById('rsiChart');
+        if (canvas && canvas.parentElement) {
+            const container = canvas.parentElement;
+            const existingLabels = container.querySelectorAll('.demo-data-label');
+            existingLabels.forEach(label => label.remove());
         }
     }
 }
@@ -1808,7 +1837,11 @@ function updateDiffChart(data) {
     } else {
         // Check if we're using sample data for either currency
         const [baseCurrency, quoteCurrency] = state.selectedPair.split('/');
+        
+        // For the rate differential chart, we're using sample data if either currency uses sample data
+        // JPY always uses sample data, so any pair with JPY will show the demo data indicator
         usingSampleData = isUsingSampleData(baseCurrency) || isUsingSampleData(quoteCurrency);
+        console.log(`Rate differential using sample data: ${usingSampleData} (${baseCurrency}: ${isUsingSampleData(baseCurrency)}, ${quoteCurrency}: ${isUsingSampleData(quoteCurrency)})`);
     }
     
     // Filter data to show only up to the current date
@@ -1962,7 +1995,15 @@ function updateDiffChart(data) {
                 
                 // Add demo data indicator if using sample data
                 if (usingSampleData) {
+                    // Remove any existing demo data labels first
+                    const existingLabels = container.querySelectorAll('.demo-data-label');
+                    existingLabels.forEach(label => label.remove());
+                    
                     container.appendChild(createDemoDataTag('chart'));
+                } else {
+                    // If not using demo data, remove any existing demo data labels
+                    const existingLabels = container.querySelectorAll('.demo-data-label');
+                    existingLabels.forEach(label => label.remove());
                 }
             }
         }
