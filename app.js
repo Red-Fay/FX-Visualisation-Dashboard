@@ -12,6 +12,7 @@ const CONFIG = {
     defaultTimeframe: '1D',
     
     // Demo mode (uses sample data instead of API calls)
+    // Set to true initially, but will be updated based on API key presence
     demoMode: true,
     
     // API settings
@@ -45,9 +46,21 @@ const state = {
     setApiKey(key) {
         this.apiKey = key;
         saveToStorage(CONFIG.apiKeyStorageKey, key);
+        
+        // Update demo mode based on API key presence
+        if (key) {
+            CONFIG.demoMode = false;
+            console.log("API key set, disabling demo mode");
+        } else {
+            CONFIG.demoMode = true;
+            console.log("No API key, enabling demo mode");
+        }
+        
         // Reload data if key is provided
         if (key) {
             loadRealData();
+        } else {
+            loadDemoData();
         }
     }
 };
@@ -239,7 +252,14 @@ function initApp() {
     if (state.apiKey) {
         elements.apiKeyInput.value = state.apiKey;
         console.log("Found API key in storage");
+        // If we have an API key, we're not in demo mode
+        CONFIG.demoMode = false;
+    } else {
+        // If we don't have an API key, we're in demo mode
+        CONFIG.demoMode = true;
     }
+    
+    console.log(`Demo mode: ${CONFIG.demoMode}`);
     
     // Check for cached data first, regardless of demo mode
     const cachedHistoricalData = getFromStorage(CONFIG.dataStorageKeys.historicalData);
@@ -249,52 +269,22 @@ function initApp() {
     console.log("Cached data available:", {
         historicalData: !!cachedHistoricalData, 
         interestRates: !!cachedInterestRates,
-        lastUpdateTime: lastUpdateTime || 'None'
+        lastUpdateTime: !!lastUpdateTime
     });
     
-    if (cachedHistoricalData && cachedInterestRates) {
-        try {
-            console.log("Attempting to parse cached data");
-            const parsedHistoricalData = JSON.parse(cachedHistoricalData);
-            const parsedInterestRates = JSON.parse(cachedInterestRates);
-            
-            // Validate the data - make sure it has the expected structure
-            if (!parsedHistoricalData[CONFIG.defaultPair] || !parsedHistoricalData[CONFIG.defaultPair].length) {
-                console.error("Invalid historical data structure in cache");
-                throw new Error("Invalid cached historical data");
-            }
-            
-            // Data looks valid, assign to state
-            state.historicalData = parsedHistoricalData;
-            state.interestRates = parsedInterestRates;
-            
-            // Set up dates from cached data
-            console.log("Setting up dates from cached data");
-            state.allDates = state.historicalData[CONFIG.defaultPair].map(d => d.date);
-            state.currentDateIndex = state.allDates.length - 1;
-            console.log("Dates setup complete, found", state.allDates.length, "dates");
-            
-            // Update UI with cached data
-            console.log("Updating UI with cached data");
-            updateUI();
-        } catch (error) {
-            console.error("Error loading cached data:", error);
-            console.log("Falling back to demo data");
-            clearDataCache(); // Clear possibly corrupted cache
-            loadDemoData();
-        }
+    // If we have an API key and cached data, use it
+    if (state.apiKey && cachedHistoricalData && cachedInterestRates) {
+        console.log("Using cached data with API key");
+        loadRealData();
+    } else if (state.apiKey) {
+        // If we have an API key but no cached data, fetch fresh data
+        console.log("Fetching fresh data with API key");
+        loadRealData();
     } else {
-        console.log("No cached data found, loading based on mode");
-        // No cached data, so load based on mode and API key
-        if (CONFIG.demoMode || !state.apiKey) {
-            loadDemoData();
-        } else {
-            loadRealData();
-        }
+        // Otherwise, use demo data
+        console.log("Using demo data (no API key)");
+        loadDemoData();
     }
-    
-    // Update last update time display
-    updateLastUpdateTime();
     
     // Set up event listeners
     setupEventListeners();
@@ -306,6 +296,9 @@ function initApp() {
 // Load sample data for demo mode
 function loadDemoData() {
     console.log("Loading demo data");
+    // Ensure demo mode is set to true
+    CONFIG.demoMode = true;
+    
     state.historicalData = JSON.parse(JSON.stringify(sampleData));
     state.interestRates = JSON.parse(JSON.stringify(sampleInterestRates));
     
@@ -328,9 +321,13 @@ async function loadRealData() {
     console.log("Loading real data");
     if (!state.apiKey) {
         console.warn('No API key provided. Falling back to demo mode.');
+        CONFIG.demoMode = true;
         loadDemoData();
         return;
     }
+    
+    // We have an API key, so we're not in demo mode
+    CONFIG.demoMode = false;
     
     try {
         // Show loading state
@@ -384,9 +381,20 @@ async function loadRealData() {
     }
 }
 
-// Fetch fresh data from the API
+// Fetch fresh data from Alpha Vantage API
 async function fetchFreshData() {
-    console.log("Fetching fresh data from API");
+    console.log("Fetching fresh data from Alpha Vantage API");
+    
+    if (!state.apiKey) {
+        console.warn("No API key provided, cannot fetch fresh data");
+        CONFIG.demoMode = true;
+        loadDemoData();
+        return;
+    }
+    
+    // We have an API key, so we're not in demo mode
+    CONFIG.demoMode = false;
+    
     try {
         // Show loading state
         showLoading(true);
@@ -1267,8 +1275,10 @@ function isUsingSampleData(currency) {
     // If there's no data for this currency, we can't determine
     if (!state.interestRates[currency] || state.interestRates[currency].length === 0) return true;
     
-    // Check if the dates in the data match exactly with the sample data dates
-    // This is a reliable way to determine if we're using sample data
+    // For USD, we should have real data if we're not in demo mode and have an API key
+    if (currency === 'USD' && !CONFIG.demoMode && state.apiKey) return false;
+    
+    // For other currencies, check if the dates match sample data
     const currencyData = state.interestRates[currency];
     const sampleData = sampleInterestRates[currency];
     
@@ -1491,8 +1501,8 @@ function updatePriceChart(data) {
     const ctx = document.getElementById('priceChart').getContext('2d');
     
     // Check if we're using sample data - this should be based on the actual data source
-    // For price data, we need to check if we're in demo mode or have no API key
-    const isUsingDemoData = CONFIG.demoMode || !state.apiKey;
+    // We're using demo data if CONFIG.demoMode is true
+    const isUsingDemoData = CONFIG.demoMode;
     
     console.log(`Price chart using demo data: ${isUsingDemoData}`);
     
@@ -1624,8 +1634,8 @@ function updateRSIChart(data) {
     const ctx = document.getElementById('rsiChart').getContext('2d');
     
     // Check if we're using sample data - this should be based on the actual data source
-    // For RSI data, we need to check if we're in demo mode or have no API key
-    const isUsingDemoData = CONFIG.demoMode || !state.apiKey;
+    // We're using demo data if CONFIG.demoMode is true
+    const isUsingDemoData = CONFIG.demoMode;
     
     console.log(`RSI chart using demo data: ${isUsingDemoData}`);
     
