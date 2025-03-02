@@ -244,6 +244,15 @@ const elements = {
     lastUpdateTime: document.getElementById('lastUpdateTime')
 };
 
+// Helper function to debug demo mode and related settings
+function debugDemoMode(location) {
+    console.log(`[DEBUG ${location}] Demo mode settings:`);
+    console.log(`- CONFIG.demoMode: ${CONFIG.demoMode}`);
+    console.log(`- state.apiKey present: ${!!state.apiKey}`);
+    console.log(`- JPY using sample: ${isUsingSampleData('JPY')}`);
+    console.log(`- USD using sample: ${isUsingSampleData('USD')}`);
+}
+
 // Initialize the application
 function initApp() {
     console.log("Initializing app");
@@ -260,6 +269,7 @@ function initApp() {
     }
     
     console.log(`Demo mode: ${CONFIG.demoMode}`);
+    debugDemoMode('initApp');
     
     // Check for cached data first, regardless of demo mode
     const cachedHistoricalData = getFromStorage(CONFIG.dataStorageKeys.historicalData);
@@ -1298,9 +1308,12 @@ function isUsingSampleData(currency) {
 
 // Create a consistent demo data tag with better styling
 function createDemoDataTag(position = 'inline') {
+    console.log(`Creating demo data tag for position: ${position}`);
+    
     if (position === 'inline') {
         // For inline tags (in the interest rates panel) - match the chart style
-        return '<span class="ml-2 px-2 py-0.5 text-xs font-medium rounded bg-amber-500 text-white" style="opacity: 0.9;">Demo Data</span>';
+        // Return a more visually distinct tag
+        return '<span class="demo-data-tag ml-2 px-2 py-0.5 text-xs font-medium rounded bg-amber-500 text-white" style="opacity: 0.9; display: inline-block;">Demo Data</span>';
     } else if (position === 'chart') {
         // For chart overlay tags
         const tag = document.createElement('div');
@@ -1322,6 +1335,8 @@ function createDemoDataTag(position = 'inline') {
 
 // Update the interest rates panel with current data
 function updateInterestRatesPanel(currentDate) {
+    debugDemoMode('updateInterestRatesPanel - start');
+    
     const [baseCurrency, quoteCurrency] = state.selectedPair.split('/');
     
     // Clear previous content
@@ -1346,13 +1361,13 @@ function updateInterestRatesPanel(currentDate) {
     if (baseRateData) {
         const changeClass = baseRateData.change > 0 ? 'text-green-500' : baseRateData.change < 0 ? 'text-red-500' : 'text-gray-500';
         
-        // Only show a tag for demo data, not for real data
-        const html = `
+        // Create the base HTML without the demo tag
+        let html = `
             <div class="border-b pb-2">
                 <div class="flex justify-between">
                     <div class="flex items-center">
                         <span class="text-sm text-gray-500">${baseRateData.country}</span>
-                        ${baseUsingSample ? createDemoDataTag('inline') : ''}
+                        <span class="base-demo-tag-container"></span>
                     </div>
                     <span class="text-sm font-medium ${changeClass}">
                         ${baseRateData.change > 0 ? '+' : ''}${baseRateData.change}%
@@ -1363,19 +1378,28 @@ function updateInterestRatesPanel(currentDate) {
             </div>
         `;
         
+        // Add the HTML to the container
         elements.interestRatesContainer.insertAdjacentHTML('beforeend', html);
+        
+        // If using sample data, add the demo tag separately
+        if (baseUsingSample) {
+            const baseTagContainer = elements.interestRatesContainer.querySelector('.base-demo-tag-container');
+            if (baseTagContainer) {
+                baseTagContainer.innerHTML = `<span class="demo-data-tag ml-2 px-2 py-0.5 text-xs font-medium rounded bg-amber-500 text-white" style="opacity: 0.9; display: inline-block;">Demo Data</span>`;
+            }
+        }
     }
     
     if (quoteRateData) {
         const changeClass = quoteRateData.change > 0 ? 'text-green-500' : quoteRateData.change < 0 ? 'text-red-500' : 'text-gray-500';
         
-        // Only show a tag for demo data, not for real data
-        const html = `
+        // Create the quote HTML without the demo tag
+        let html = `
             <div class="border-b pb-2">
                 <div class="flex justify-between">
                     <div class="flex items-center">
                         <span class="text-sm text-gray-500">${quoteRateData.country}</span>
-                        ${quoteUsingSample ? createDemoDataTag('inline') : ''}
+                        <span class="quote-demo-tag-container"></span>
                     </div>
                     <span class="text-sm font-medium ${changeClass}">
                         ${quoteRateData.change > 0 ? '+' : ''}${quoteRateData.change}%
@@ -1386,7 +1410,16 @@ function updateInterestRatesPanel(currentDate) {
             </div>
         `;
         
+        // Add the HTML to the container
         elements.interestRatesContainer.insertAdjacentHTML('beforeend', html);
+        
+        // If using sample data, add the demo tag separately
+        if (quoteUsingSample) {
+            const quoteTagContainer = elements.interestRatesContainer.querySelector('.quote-demo-tag-container');
+            if (quoteTagContainer) {
+                quoteTagContainer.innerHTML = `<span class="demo-data-tag ml-2 px-2 py-0.5 text-xs font-medium rounded bg-amber-500 text-white" style="opacity: 0.9; display: inline-block;">Demo Data</span>`;
+            }
+        }
     }
     
     if (baseRateData && quoteRateData && pairData) {
@@ -1394,12 +1427,12 @@ function updateInterestRatesPanel(currentDate) {
         // For the differential, we're using sample data if either currency uses sample data
         const eitherUsingSample = baseUsingSample || quoteUsingSample;
         
-        // Only show a tag for demo data, not for real data
-        const html = `
+        // Create the differential HTML without the demo tag
+        let html = `
             <div>
                 <div class="flex items-center">
                     <span class="text-sm text-gray-500">Interest Rate Differential</span>
-                    ${eitherUsingSample ? createDemoDataTag('inline') : ''}
+                    <span class="diff-demo-tag-container"></span>
                 </div>
                 <div class="text-xl font-bold ${diffClass}">
                     ${pairData.interestDiff > 0 ? '+' : ''}${pairData.interestDiff}%
@@ -1410,7 +1443,16 @@ function updateInterestRatesPanel(currentDate) {
             </div>
         `;
         
+        // Add the HTML to the container
         elements.interestRatesContainer.insertAdjacentHTML('beforeend', html);
+        
+        // If using sample data, add the demo tag separately
+        if (eitherUsingSample) {
+            const diffTagContainer = elements.interestRatesContainer.querySelector('.diff-demo-tag-container');
+            if (diffTagContainer) {
+                diffTagContainer.innerHTML = `<span class="demo-data-tag ml-2 px-2 py-0.5 text-xs font-medium rounded bg-amber-500 text-white" style="opacity: 0.9; display: inline-block;">Demo Data</span>`;
+            }
+        }
     }
 }
 
