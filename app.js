@@ -1282,6 +1282,30 @@ function isUsingSampleData(currency) {
     return JSON.stringify(sampleDates) === JSON.stringify(currencyDates);
 }
 
+// Create a consistent demo data tag with better styling
+function createDemoDataTag(position = 'inline') {
+    if (position === 'inline') {
+        // For inline tags (in the interest rates panel)
+        return '<span class="ml-2 px-2 py-0.5 text-xs font-medium rounded bg-amber-500 text-white">Demo Data</span>';
+    } else if (position === 'chart') {
+        // For chart overlay tags
+        const tag = document.createElement('div');
+        tag.className = 'chart-label demo-data-label';
+        tag.textContent = 'Demo Data';
+        tag.style.position = 'absolute';
+        tag.style.left = '10px';
+        tag.style.top = '10px';
+        tag.style.backgroundColor = 'rgba(245, 158, 11, 0.9)'; // More opaque amber color
+        tag.style.color = 'white';
+        tag.style.padding = '2px 6px';
+        tag.style.borderRadius = '4px';
+        tag.style.fontSize = '10px';
+        tag.style.fontWeight = 'bold';
+        tag.style.zIndex = '20';
+        return tag;
+    }
+}
+
 // Update the interest rates panel with current data
 function updateInterestRatesPanel(currentDate) {
     const [baseCurrency, quoteCurrency] = state.selectedPair.split('/');
@@ -1300,18 +1324,13 @@ function updateInterestRatesPanel(currentDate) {
     const baseUsingSample = isUsingSampleData(baseCurrency);
     const quoteUsingSample = isUsingSampleData(quoteCurrency);
     
-    // Create a tag for demo data
-    const createDemoTag = () => {
-        return '<span class="ml-2 px-2 py-0.5 text-xs font-medium rounded bg-amber-100 text-amber-800">Demo Data</span>';
-    };
-    
     if (baseRateData) {
         const changeClass = baseRateData.change > 0 ? 'text-green-500' : baseRateData.change < 0 ? 'text-red-500' : 'text-gray-500';
         
         const html = `
             <div class="border-b pb-2">
                 <div class="flex justify-between">
-                    <span class="text-sm text-gray-500">${baseRateData.country} ${baseUsingSample ? createDemoTag() : ''}</span>
+                    <span class="text-sm text-gray-500">${baseRateData.country} ${baseUsingSample ? createDemoDataTag('inline') : ''}</span>
                     <span class="text-sm font-medium ${changeClass}">
                         ${baseRateData.change > 0 ? '+' : ''}${baseRateData.change}%
                     </span>
@@ -1330,7 +1349,7 @@ function updateInterestRatesPanel(currentDate) {
         const html = `
             <div class="border-b pb-2">
                 <div class="flex justify-between">
-                    <span class="text-sm text-gray-500">${quoteRateData.country} ${quoteUsingSample ? createDemoTag() : ''}</span>
+                    <span class="text-sm text-gray-500">${quoteRateData.country} ${quoteUsingSample ? createDemoDataTag('inline') : ''}</span>
                     <span class="text-sm font-medium ${changeClass}">
                         ${quoteRateData.change > 0 ? '+' : ''}${quoteRateData.change}%
                     </span>
@@ -1351,7 +1370,7 @@ function updateInterestRatesPanel(currentDate) {
             <div>
                 <div class="flex items-center">
                     <span class="text-sm text-gray-500">Interest Rate Differential</span>
-                    ${bothUsingSample ? createDemoTag() : ''}
+                    ${bothUsingSample ? createDemoDataTag('inline') : ''}
                 </div>
                 <div class="text-xl font-bold ${diffClass}">
                     ${pairData.interestDiff > 0 ? '+' : ''}${pairData.interestDiff}%
@@ -1577,20 +1596,7 @@ function updatePriceChart(data) {
             existingLabels.forEach(label => label.remove());
             
             // Add demo data label
-            const demoDataLabel = document.createElement('div');
-            demoDataLabel.className = 'chart-label demo-data-label';
-            demoDataLabel.textContent = 'Demo Data';
-            demoDataLabel.style.position = 'absolute';
-            demoDataLabel.style.left = '10px';
-            demoDataLabel.style.top = '10px';
-            demoDataLabel.style.backgroundColor = 'rgba(245, 158, 11, 0.7)'; // amber color
-            demoDataLabel.style.color = 'white';
-            demoDataLabel.style.padding = '2px 6px';
-            demoDataLabel.style.borderRadius = '4px';
-            demoDataLabel.style.fontSize = '10px';
-            demoDataLabel.style.fontWeight = 'bold';
-            demoDataLabel.style.zIndex = '20';
-            container.appendChild(demoDataLabel);
+            container.appendChild(createDemoDataTag('chart'));
         }
     }
 }
@@ -1739,20 +1745,7 @@ function updateRSIChart(data) {
             existingLabels.forEach(label => label.remove());
             
             // Add demo data label
-            const demoDataLabel = document.createElement('div');
-            demoDataLabel.className = 'chart-label demo-data-label';
-            demoDataLabel.textContent = 'Demo Data';
-            demoDataLabel.style.position = 'absolute';
-            demoDataLabel.style.left = '10px';
-            demoDataLabel.style.top = '10px';
-            demoDataLabel.style.backgroundColor = 'rgba(245, 158, 11, 0.7)'; // amber color
-            demoDataLabel.style.color = 'white';
-            demoDataLabel.style.padding = '2px 6px';
-            demoDataLabel.style.borderRadius = '4px';
-            demoDataLabel.style.fontSize = '10px';
-            demoDataLabel.style.fontWeight = 'bold';
-            demoDataLabel.style.zIndex = '20';
-            container.appendChild(demoDataLabel);
+            container.appendChild(createDemoDataTag('chart'));
         }
     }
 }
@@ -1969,20 +1962,7 @@ function updateDiffChart(data) {
                 
                 // Add demo data indicator if using sample data
                 if (usingSampleData) {
-                    const demoDataLabel = document.createElement('div');
-                    demoDataLabel.className = 'chart-label demo-data-label';
-                    demoDataLabel.textContent = 'Demo Data';
-                    demoDataLabel.style.position = 'absolute';
-                    demoDataLabel.style.left = '10px';
-                    demoDataLabel.style.top = '10px';
-                    demoDataLabel.style.backgroundColor = 'rgba(245, 158, 11, 0.7)'; // amber color
-                    demoDataLabel.style.color = 'white';
-                    demoDataLabel.style.padding = '2px 6px';
-                    demoDataLabel.style.borderRadius = '4px';
-                    demoDataLabel.style.fontSize = '10px';
-                    demoDataLabel.style.fontWeight = 'bold';
-                    demoDataLabel.style.zIndex = '20';
-                    container.appendChild(demoDataLabel);
+                    container.appendChild(createDemoDataTag('chart'));
                 }
             }
         }
