@@ -1,6 +1,6 @@
 # FX Inflection Point Dashboard
 
-A dashboard for visualizing foreign exchange movements, technical indicators, and generating inflection point alerts. View the live dashboard at [red-fay.github.io/FX-visualisation-dashboard/](https://red-fay.github.io/FX-visualisation-dashboard/).
+A dashboard for visualizing foreign exchange movements, technical indicators, and generating inflection point alerts. View the live dashboard at [red-fay.github.io/FX-Visualisation-Dashboard/](https://red-fay.github.io/FX-Visualisation-Dashboard/).
 
 ## Features
 
