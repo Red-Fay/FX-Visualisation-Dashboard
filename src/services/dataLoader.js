@@ -3,7 +3,7 @@
  * Handles loading data from API or generating demo data
  */
 
-import { saveToStorage } from './storage';
+import { saveToStorage } from './storage/index';
 import { CONFIG } from '../config/constants';
 import { formatDate, calculateChange } from '../utils/formatters';
 
